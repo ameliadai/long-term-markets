@@ -51,6 +51,7 @@ def core(res, data):
     t["label"] = t.hz.map(HZ_LABEL)
     S["trades_hz"] = rec(t)
     S["trades_long_group"] = rec(csv("06_trades_long_by_group.csv"))
+    S["vol_to_close"] = rec(csv("02_volume_to_close.csv"))
 
     S["accuracy"] = {H: rec(csv(f"03_accuracy_h{H}.csv")) for H in (90, 180, 365)}
     S["accuracy_group"] = rec(csv("03_accuracy_by_group.csv"))

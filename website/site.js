@@ -38,7 +38,7 @@ function pageOverview(main) {
   const PM = isPM();
   pageHead(main, `${PNAME()} long-horizon markets`, 'What each tab shows. The switch at the top right changes the platform.');
   const tabs = [
-    ['horizons', 'Horizons', `Which markets exist and how much they trade, by how ${PM ? 'long they were open' : 'far ahead of their close they were listed'}.`],
+    ['horizons', 'Horizons', `Which markets exist, by how ${PM ? 'long they were open' : 'far ahead of their close they were listed'}, how many long markets are usable, and when long markets trade before resolving.`],
     ['accuracy', 'Accuracy', 'How accurate prices are at different distances from resolution: Brier score, calibration, accuracy by liquidity, and returns from buying favourites early.'],
     ['regressions', 'Regression', `Whether days with more past trading have more accurate prices, in four specifications, by category${PM ? ' and by year the market closed' : ''}.`],
     ['tail', 'Last days', 'Whether the outcome is already known before a market closes, and how much of the data comes from those days.'],
@@ -57,13 +57,7 @@ function pageOverview(main) {
 function pageHorizons(main) {
   pageHead(main, 'Which markets exist, by horizon', isPM() ? 'Every Polymarket market, grouped by how long it was open (start to close).' : 'Every non-combo market, grouped by how far ahead of its close it was listed.');
   const H = S.horizon, T = Object.fromEntries(S.trades_hz.map(r => [r.hz, r])), PM = isPM(), unit = PM ? 'shares' : 'contracts';
-  const shareOf = hz => H.filter(r => hz.includes(r.hz)).reduce((a, r) => a + r.vol_share, 0);
-  const c1 = card(`Share of all ${unit} traded`, `Markets open under a week take ${pct(shareOf(['<1d', '1-7d']))}; those ${PM ? 'running' : 'listed'} 6+ months ahead take about ${pct(shareOf(['6-12m', '1-2y', '>2y']))}.`);
-  C.vbar(c1, H.map(r => SHORT[r.hz]), H.map(r => r.vol_share), { fmtV: v => pct(v, 1), H: 230 });
-  const c2 = card('Trades per market-day', PM ? 'Median, on days a market traded; resolved yes/no markets open at least a day, over their whole life.' : 'Median, on days a market traded (15 Jul – 21 Sep 2026). Long-dated markets see 2–3 trades a day.');
-  C.vbar(c2, H.map(r => SHORT[r.hz]), H.map(r => T[r.hz].median_trades_per_market_day), { fmtV: v => fi(v), H: 230 });
-  main.append(grid(c1, c2));
-  const c3 = card('By horizon', null, null, 'card wide'); main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, c3));
+  const c3 = card('By horizon', null, null, 'card wide'); main.append(h('div', { class: 'grid' }, c3));
   c3.append(simpleTable([
     { key: 'label', label: PM ? 'Open for' : 'Listed ahead' },
     { key: 'markets', label: 'Markets', num: true, render: r => fi(r.markets) },
@@ -92,6 +86,24 @@ function pageHorizons(main) {
     [h('b', {}, 'Usable long markets'), h('b', {}, fi(F.used)), ''],
   ]));
   main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, c4));
+
+  const V = S.vol_to_close || [];
+  const WIN = ['>365d', '180-365d', '90-180d', '30-90d', '7-30d', '1-7d', '0-1d'];
+  const VLAB = { '>365d': '> 1y', '180-365d': '6–12m', '90-180d': '3–6m', '30-90d': '1–3m', '7-30d': '1–4w', '1-7d': '1–7d', '0-1d': 'final day' };
+  const GRP = [['3-6m', 'open 3–6 months'], ['6-12m', 'open 6–12 months'], ['>1y', 'open > 1 year']];
+  const row = (g, w) => V.find(r => r.group === g && r.dtc_bin === w);
+  const nG = g => (V.find(r => r.group === g) || {}).markets || 0;
+  const series = key => GRP.map(([g, name]) => ({ name: `${name} (${fi(nG(g))})`, values: WIN.map(w => row(g, w)?.[key] ?? 0) }));
+  sectionHead(main, 'When long markets trade', `The ${fi(F.used)} usable long markets above, split by how long they were open, by time left until they resolved. A market can only trade in windows it was open for, so a short market has no bars far out. Each window has a different length.`);
+  const v1 = card(`Average ${unit} traded in each window`, 'Per market in the group; a market not yet open counts as 0, so each group’s bars add up to its average lifetime volume.');
+  C.vbar(v1, WIN.map(w => VLAB[w]), series('avg_volume'), { fmtV: big, H: 240 });
+  const v2 = card('Share of lifetime volume in each window', 'The part of each market’s lifetime volume traded in that window, averaged over the group; each group’s bars add up to 100%.');
+  C.vbar(v2, WIN.map(w => VLAB[w]), series('share_of_volume'), { fmtV: v => pct(v, v < 0.01 ? 1 : 0), H: 240 });
+  const sum = (g, key, ws) => ws.reduce((a, w) => a + (row(g, w)?.[key] ?? 0), 0);
+  const EARLY = ['>365d', '180-365d'], LATE = ['30-90d', '7-30d', '1-7d', '0-1d'];
+  v1.append(h('p', { class: 'note' }, `Markets open over a year trade about ${big(sum('>1y', 'avg_volume', EARLY))} ${unit} each more than 6 months before resolving, against ${big(sum('>1y', 'avg_volume', LATE))} in the last 3 months.`));
+  v2.append(h('p', { class: 'note' }, `Even markets open over a year do only ${pct(sum('>1y', 'share_of_volume', EARLY))} of their trading more than 6 months out and ${pct(sum('>1y', 'share_of_volume', LATE))} in the last 3 months (markets open 6–12 months: ${pct(sum('6-12m', 'share_of_volume', EARLY))} and ${pct(sum('6-12m', 'share_of_volume', LATE))}).`));
+  main.append(grid(v1, v2));
 }
 
 // ------------------------------------------------------------------ Accuracy
@@ -188,7 +200,7 @@ function pageRegressions(main) {
     : { reg: S.reg10, cat: S.reg10_cat || [], byc: S.reg10_bycat || [], dur: 'horizon_days' };
   const RG = () => DATA().reg.filter(r => (r.variant || 'all days') === variant);
   const get = (smp, spec, term) => RG().find(r => r.sample === smp && r.spec === spec && r.term === term);
-  const SPECS = ['(1) month FE', '(2) + category FE + duration', '(3) month FE + contract FE', '(4) + days-to-expiry bins'];
+  const SPECS = ['(1) month FE', '(2) + category FE + duration', '(3) month FE + contract FE', '(4) + days-to-expiry bins', '(5) log days to expiry'];
   const first = smp => RG().find(r => r.sample === smp);
 
   sectionHead(main, 'Setup');
@@ -198,7 +210,8 @@ function pageRegressions(main) {
 (1)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \theta\,\text{DaysToExpiry}_{m,d} + \mu_{\text{month}(d)} + \varepsilon_{m,d} \\
 (2)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \theta\,\text{DaysToExpiry}_{m,d} + \lambda\,\text{Duration}_{m} + \mu_{\text{month}(d)} + \kappa_{\text{category}(m)} + \varepsilon_{m,d} \\
 (3)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \theta\,\text{DaysToExpiry}_{m,d} + \mu_{\text{month}(d)} + \alpha_{m} + \varepsilon_{m,d} \\
-(4)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \gamma_{\text{bin}(\text{DaysToExpiry}_{m,d})} + \mu_{\text{month}(d)} + \alpha_{m} + \varepsilon_{m,d}
+(4)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \gamma_{\text{bin}(\text{DaysToExpiry}_{m,d})} + \mu_{\text{month}(d)} + \alpha_{m} + \varepsilon_{m,d} \\
+(5)\;\; \text{Brier}_{m,d} &= \beta\,\log(1+\text{CumVol}_{m,d}) + \theta\,\log(1+\text{DaysToExpiry}_{m,d}) + \mu_{\text{month}(d)} + \alpha_{m} + \varepsilon_{m,d}
 \end{aligned}`, true)),
     h('ul', { class: 'plain' },
       h('li', {}, tex(String.raw`\text{Brier}_{m,d} = (\text{Price}_{m,d} - \text{Outcome}_m)^2`), ': market ', tex('m'), ' on day ', tex('d'), isPM() ? '; price = Polymarket’s daily price of the first outcome (taken at 00:00 UTC; no bid/ask history)' : '; price = bid–ask midpoint at the day’s last hourly bar; days without a two-sided quote are dropped (an old last trade would make illiquid markets look stuck)'),
@@ -206,6 +219,7 @@ function pageRegressions(main) {
       h('li', {}, tex(String.raw`\text{DaysToExpiry}_{m,d}`), ': days left until the market closes; ', tex(String.raw`\text{Duration}_m`), ': days from open to close'),
       h('li', {}, tex(String.raw`\mu`), ': month-year fixed effect; ', tex(String.raw`\kappa`), ': category fixed effect; ', tex(String.raw`\alpha_m`), ': contract fixed effect (compares a market with itself over time)'),
       h('li', {}, tex(String.raw`\gamma_{\text{bin}}`), ': days-to-expiry bin fixed effect, a separate baseline for each of the 20 bins in the table below. (4) is (3) with these bins in place of the straight line ', tex(String.raw`\theta\,\text{DaysToExpiry}`), ', because accuracy does not change at a constant rate as the close approaches.'),
+      h('li', {}, '(5) is (3) with ', tex(String.raw`\log(1+\text{DaysToExpiry}_{m,d})`), ' in place of the straight line: each extra day matters more near the close than far from it. The +1 keeps it defined on the closing day.'),
       h('li', {}, 'OLS; standard errors clustered by event')));
   const HZ_BINS = [
     ['First week, one bin per day', '0–1, 1–2, 2–3, 3–4, 4–5, 5–6, 6–7'],
@@ -232,7 +246,7 @@ function pageRegressions(main) {
     c.append(simpleTable([
       { key: 's', label: 'Specification', render: r => r },
       { key: 'v', label: 'β volume', num: true, render: r => cell(smp, r, 'log_cum_vol') },
-      { key: 'd', label: 'θ days to expiry', num: true, render: r => r === SPECS[3] ? h('span', { class: 'muted small' }, 'bins (γ)') : cell(smp, r, 'days_to_exp') },
+      { key: 'd', label: 'θ days to expiry', num: true, render: r => r === SPECS[3] ? h('span', { class: 'muted small' }, 'bins (γ)') : r === SPECS[4] ? h('span', {}, cell(smp, r, 'log_days_to_exp'), h('div', { class: 'muted small' }, 'per unit of log(1 + days)')) : cell(smp, r, 'days_to_exp') },
       { key: 'u', label: 'λ duration', num: true, render: r => cell(smp, r, DATA().dur) }], SPECS));
     return c;
   };
@@ -589,7 +603,7 @@ function pageNotes(main) {
 
   section('The model',
     fx(String.raw`\text{Brier}_{m,d} = \beta\,\text{LogVol}_{m,d} + \theta\,\text{DaysToExpiry}_{m,d} + \lambda\,\text{Duration}_m + \underbrace{\mu_{\text{month}(d)}}_{\text{month FE}} + \underbrace{\kappa_{\text{category}(m)}}_{\text{category FE}} + \underbrace{\alpha_m}_{\text{contract FE}} + \varepsilon_{m,d}`),
-    h('p', {}, 'Each specification keeps only some of these terms: (1) volume, days to expiry and month FE; (2) adds duration and category FE; (3) volume, days to expiry, month FE and contract FE; (4) is (3) with a separate baseline for each of 20 days-to-expiry bins (0–1, 1–2, …, 6–7, 7–14, 14–21, 21–28, 28–42, 42–56, 56–90, 90–120, 120–150, 150–180, 180–240, 240–300, 300–365, 365+ days) instead of the straight-line θ. One row of data is one market on one day.'),
+    h('p', {}, 'Each specification keeps only some of these terms: (1) volume, days to expiry and month FE; (2) adds duration and category FE; (3) volume, days to expiry, month FE and contract FE; (4) is (3) with a separate baseline for each of 20 days-to-expiry bins (0–1, 1–2, …, 6–7, 7–14, 14–21, 21–28, 28–42, 42–56, 56–90, 90–120, 120–150, 150–180, 180–240, 240–300, 300–365, 365+ days) instead of the straight-line θ; (5) is (3) with θ on log(1 + days to expiry). One row of data is one market on one day.'),
     defs([
       ['m', 'A market (one yes/no contract).'],
       ['d', 'A calendar day on which the market has a price.'],

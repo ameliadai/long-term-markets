@@ -12,6 +12,7 @@ Specifications (SEs clustered by event):
   (2) Brier ~ log_cum_vol + days_to_exp + duration_days | month-year FE + category FE
   (3) Brier ~ log_cum_vol + days_to_exp | month-year FE + contract FE
   (4) Brier ~ log_cum_vol | month-year FE + contract FE + days-to-expiry bin FE
+  (5) Brier ~ log_cum_vol + log(1 + days_to_exp) | month-year FE + contract FE
       (20 bins, in days, lower end included: 0-1, 1-2, ..., 6-7, 7-14, 14-21, 21-28, 28-42, 42-56,
        56-90, 90-120, 120-150, 150-180, 180-240, 240-300, 300-365, 365+)
 Samples: all; initial duration > 180 days; expired in 2026; expired in 2025.
@@ -52,6 +53,7 @@ t["log_cum_vol"] = np.log1p(t.cum_prior_vol.clip(lower=0))
 t["month"] = t.day.dt.strftime("%Y-%m")
 HZ_EDGES = [0, 1, 2, 3, 4, 5, 6, 7, 14, 21, 28, 42, 56, 90, 120, 150, 180, 240, 300, 365, np.inf]
 t["hz_bin"] = pd.cut(t.days_to_exp, HZ_EDGES, right=False, labels=False)
+t["log_days_to_exp"] = np.log1p(t.days_to_exp)
 t["exp_year"] = t.close_time.dt.year
 t["category"] = t.category.fillna("Unknown")
 print(f"panel: {len(t):,} contract-days, {t.ticker.nunique():,} contracts, {t.event_ticker.nunique():,} events")
@@ -91,6 +93,7 @@ SPECS = {
     "(2) + category FE + duration": (["log_cum_vol", "days_to_exp", "horizon_days"], ["month", "category"]),
     "(3) month FE + contract FE": (["log_cum_vol", "days_to_exp"], ["month", "ticker"]),
     "(4) + days-to-expiry bins": (["log_cum_vol"], ["month", "ticker", "hz_bin"]),
+    "(5) log days to expiry": (["log_cum_vol", "log_days_to_exp"], ["month", "ticker"]),
 }
 VARIANTS = {"all days": t, "drop last day": t[~t.last_day]}
 rows, mix = [], []

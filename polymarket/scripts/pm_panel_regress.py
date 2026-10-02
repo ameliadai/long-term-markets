@@ -10,6 +10,7 @@ Regressions (results/pm_brier_volume_regressions.csv), SEs clustered by event:
   (2) Brier ~ log(1 + cum volume) + days_to_exp + duration_days | month FE + category FE
   (3) Brier ~ log(1 + cum volume) + days_to_exp | month FE + contract FE
   (4) Brier ~ log(1 + cum volume) | month FE + contract FE + days-to-expiry bin FE
+  (5) Brier ~ log(1 + cum volume) + log(1 + days_to_exp) | month FE + contract FE
       (same bins as the Kalshi a10 script)
 The CLOB price series has no bid/ask, so Kalshi's "two-sided quotes only" rule cannot be applied.
 Also writes the category mix (results/pm_category_mix.csv) and specs (1), (3), (4) run separately
@@ -87,6 +88,7 @@ def main():
     panel["month"] = panel.day.dt.strftime("%Y-%m")
     hz_edges = [0, 1, 2, 3, 4, 5, 6, 7, 14, 21, 28, 42, 56, 90, 120, 150, 180, 240, 300, 365, np.inf]
     panel["hz_bin"] = pd.cut(panel.days_to_exp, hz_edges, right=False, labels=False)
+    panel["log_days_to_exp"] = np.log1p(panel.days_to_exp)
     panel["exp_year"] = panel.end.dt.year
     panel = panel.sort_values(["market_id", "day"])
     panel["last_day"] = ~panel.market_id.duplicated(keep="last")
@@ -98,6 +100,7 @@ def main():
         "(2) + category FE + duration": (["log_cum_vol", "days_to_exp", "duration_days"], ["month", "category_coarse"]),
         "(3) month FE + contract FE": (["log_cum_vol", "days_to_exp"], ["month", "market_id"]),
         "(4) + days-to-expiry bins": (["log_cum_vol"], ["month", "market_id", "hz_bin"]),
+        "(5) log days to expiry": (["log_cum_vol", "log_days_to_exp"], ["month", "market_id"]),
     }
     rows = []
     for vname, pv in {"all days": panel, "drop last day": panel[~panel.last_day]}.items():

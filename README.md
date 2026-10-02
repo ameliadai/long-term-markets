@@ -37,19 +37,20 @@ books, reward programs). See [`kalshi/README.md`](kalshi/README.md) for the data
 
 ```bash
 cd kalshi/scripts
-python a01_landscape.py        # then a03, a04, a05, a06, a08, a09, a10, a11, a12
+python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a11, a12
 ```
 
 | Script | What it does |
 |---|---|
 | `a01_landscape.py` | markets and volume by listing horizon and category |
+| `a02_volume_to_close.py` | how much long markets trade at each distance from resolution |
 | `a03_accuracy.py` | Brier score, AUC and calibration 1–365 days before close |
 | `a04_incentives.py`, `a04_twfe.py` | reward-program coverage, and market outcomes on reward days |
 | `a05_info_vs_activity.py` | do reward days move prices toward the outcome; favourite/long-shot returns |
 | `a06_trades.py` | trade counts and sizes by horizon |
 | `a08_accuracy_vs_liquidity.py` | accuracy by liquidity (spread, open interest, volume, trading days) |
 | `a09_robustness.py` | calibration by horizon, favourite-return robustness |
-| `a10_brier_volume_regressions.py` | daily Brier score on cumulative past volume, four specifications |
+| `a10_brier_volume_regressions.py` | daily Brier score on cumulative past volume, five specifications |
 | `a11_resolution_timing.py` | late resolution, and markets whose last days already show the answer |
 | `a12_regression_checks.py` | robustness checks for a10 (time bins, stale prices, weights, reward instrument) |
 
@@ -61,7 +62,7 @@ Kalshi-shaped tables:
 
 ```bash
 python polymarket/scripts/pm_kshape.py
-for s in a01_landscape a03_accuracy a06_trades a08_accuracy_vs_liquidity a09_robustness a11_resolution_timing; do
+for s in a01_landscape a02_volume_to_close a03_accuracy a06_trades a08_accuracy_vs_liquidity a09_robustness a11_resolution_timing; do
   KL_DATA=polymarket/kshape KL_RESULTS=polymarket/results python kalshi/scripts/$s.py
 done
 ```
