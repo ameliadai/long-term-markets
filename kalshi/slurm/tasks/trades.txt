@@ -1,0 +1,14 @@
+kalshi-2026-09-21.sql.gz.part01
+kalshi-2026-09-21.sql.gz.part02
+kalshi-2026-09-21.sql.gz.part03
+kalshi-2026-09-21.sql.gz.part04
+kalshi-2026-09-21.sql.gz.part05
+kalshi-trades2-2026-09-21.sql.gz.part01
+kalshi-trades2-2026-09-21.sql.gz.part02
+kalshi-trades2-2026-09-21.sql.gz.part03
+kalshi-trades2-2026-09-21.sql.gz.part04
+kalshi-trades2-2026-09-21.sql.gz.part05
+kalshi-trades2-2026-09-21.sql.gz.part06
+kalshi-trades2-2026-09-21.sql.gz.part07
+kalshi-trades3-2026-09-21.sql.gz.part01
+kalshi-trades3-2026-09-21.sql.gz.part02

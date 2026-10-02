@@ -1,0 +1,17 @@
+name: long-term-markets
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - pyarrow
+  - scikit-learn
+  - matplotlib
+  - requests
+  - ipykernel
+  - google-cloud-sdk            # gcloud CLI, for `gcloud auth application-default login`
+  - pip
+  - pip:
+      - google-cloud-bigquery[pandas,bqstorage]>=3.25   # conda-forge's build is stale (2.x)
+      - db-dtypes

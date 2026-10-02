@@ -1,0 +1,4 @@
+# Static site; website/data/site.json is built locally with website/build_site.py.
+[build]
+  publish = "website"
+  command = ""

@@ -1,0 +1,46 @@
+category,markets,market_days,sample,variant
+AI,2,2,all,all days
+Climate and Weather,19686,29752,all,all days
+Commodities,20033,37731,all,all days
+Companies,12,1453,all,all days
+Crypto,12228,23755,all,all days
+Economics,8017,85951,all,all days
+Elections,2754,119717,all,all days
+Entertainment,7735,115170,all,all days
+Financials,69813,169518,all,all days
+Mentions,6837,43554,all,all days
+Politics,1650,31151,all,all days
+Science and Technology,1402,23079,all,all days
+Sports,517841,1491147,all,all days
+World,5,854,all,all days
+Companies,3,782,duration > 180 days,all days
+Economics,263,29988,duration > 180 days,all days
+Elections,388,69705,duration > 180 days,all days
+Entertainment,108,15080,duration > 180 days,all days
+Financials,6,1840,duration > 180 days,all days
+Politics,28,5956,duration > 180 days,all days
+Science and Technology,21,7202,duration > 180 days,all days
+Sports,469,69074,duration > 180 days,all days
+World,5,854,duration > 180 days,all days
+Climate and Weather,16969,26296,all,drop last day
+Commodities,11514,28139,all,drop last day
+Companies,12,1446,all,drop last day
+Crypto,9000,20059,all,drop last day
+Economics,7598,80742,all,drop last day
+Elections,2747,119361,all,drop last day
+Entertainment,7365,113117,all,drop last day
+Financials,52283,142664,all,drop last day
+Mentions,6807,42756,all,drop last day
+Politics,1644,30760,all,drop last day
+Science and Technology,1385,22706,all,drop last day
+Sports,483409,1347821,all,drop last day
+World,5,854,all,drop last day
+Companies,3,779,duration > 180 days,drop last day
+Economics,263,29848,duration > 180 days,drop last day
+Elections,388,69630,duration > 180 days,drop last day
+Entertainment,108,15065,duration > 180 days,drop last day
+Financials,6,1838,duration > 180 days,drop last day
+Politics,28,5945,duration > 180 days,drop last day
+Science and Technology,21,7199,duration > 180 days,drop last day
+Sports,469,69018,duration > 180 days,drop last day
+World,5,854,duration > 180 days,drop last day

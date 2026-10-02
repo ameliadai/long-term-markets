@@ -1,0 +1,37 @@
+category,markets,market_days,sample,variant
+Crypto,263353,739636,all,all days
+Culture,19513,410291,all,all days
+Economy & Finance,47329,590894,all,all days
+Other,1666,49314,all,all days
+Politics,43303,1366636,all,all days
+Sports,841395,7694396,all,all days
+Tech & AI,8689,225078,all,all days
+Weather,139173,315622,all,all days
+World,242,10470,all,all days
+Crypto,175,44702,duration > 180 days,all days
+Culture,158,39903,duration > 180 days,all days
+Economy & Finance,328,79705,duration > 180 days,all days
+Other,76,15805,duration > 180 days,all days
+Politics,2112,463923,duration > 180 days,all days
+Sports,2596,533449,duration > 180 days,all days
+Tech & AI,170,37975,duration > 180 days,all days
+Weather,5,943,duration > 180 days,all days
+World,13,2947,duration > 180 days,all days
+Crypto,99592,476283,all,drop last day
+Culture,18584,390778,all,drop last day
+Economy & Finance,37637,543565,all,drop last day
+Other,1610,47648,all,drop last day
+Politics,41554,1323333,all,drop last day
+Sports,738123,6853001,all,drop last day
+Tech & AI,8309,216389,all,drop last day
+Weather,128176,176449,all,drop last day
+World,241,10228,all,drop last day
+Crypto,175,44527,duration > 180 days,drop last day
+Culture,158,39745,duration > 180 days,drop last day
+Economy & Finance,328,79377,duration > 180 days,drop last day
+Other,76,15729,duration > 180 days,drop last day
+Politics,2112,461811,duration > 180 days,drop last day
+Sports,2566,530853,duration > 180 days,drop last day
+Tech & AI,170,37805,duration > 180 days,drop last day
+Weather,5,938,duration > 180 days,drop last day
+World,13,2934,duration > 180 days,drop last day

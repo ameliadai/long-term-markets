@@ -1,0 +1,15 @@
+# local data, rebuilt by the scripts from public sources
+kalshi/data/
+polymarket/data/
+polymarket/kshape/
+# intermediate tables written by the analysis scripts
+*.parquet
+!website/data/*
+# job logs and run records
+**/slurm/logs/*
+!**/slurm/logs/.gitkeep
+**/submitted_jobs.txt
+__pycache__/
+*.pyc
+.DS_Store
+.netlify/
