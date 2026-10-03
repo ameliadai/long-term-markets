@@ -28,11 +28,11 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from common import D, R
+from common import D, R, keep
 
 m = pd.read_parquet(f"{D}/markets.parquet", columns=[
     "ticker", "event_ticker", "status", "result", "open_time", "close_time", "horizon_days", "category"])
-m = m[(m.status == "finalized") & m.result.isin(["yes", "no"])].copy()
+m = keep(m[(m.status == "finalized") & m.result.isin(["yes", "no"])]).copy()
 m["y"] = (m.result == "yes").astype(np.float64)
 
 t = pq.read_table(f"{D}/candles_daily.parquet", columns=["ticker", "day", "volume", "price_close", "bid_close", "ask_close"])

@@ -15,6 +15,8 @@ CLOB = "https://clob.polymarket.com"
 DATA_API = "https://data-api.polymarket.com"
 # the Data API has no trades before this date, so markets that started earlier have incomplete volume
 TRADES_FROM = "2023-09-30"
+# categories left out of the analyses, as in kalshi/scripts/common.py (KL_ALL_CATEGORIES=1 keeps them)
+EXCLUDE = [] if os.environ.get("KL_ALL_CATEGORIES") else ["Sports", "Crypto"]
 
 
 class RateLimiter:

@@ -10,6 +10,8 @@ import datetime as dt
 import json
 import pathlib
 
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -18,6 +20,8 @@ RES, DATA = ROOT / "kalshi" / "results", ROOT / "kalshi" / "data"
 PM_RES, PM_KSHAPE, PM_DATA = (ROOT / "polymarket" / x for x in ("results", "kshape", "data"))
 PM_SITE = PM_RES
 OUT = ROOT / "website" / "data"
+# same exclusion as kalshi/scripts/common.py (the analyses leave these categories out)
+EXCLUDE = [] if os.environ.get("KL_ALL_CATEGORIES") else ["Sports", "Crypto"]
 OUT.mkdir(parents=True, exist_ok=True)
 
 HZ_ORDER = ["<1d", "1-7d", "7-30d", "1-3m", "3-6m", "6-12m", "1-2y", ">2y"]
@@ -43,25 +47,18 @@ def core(res, data):
     h = csv("01_horizon_landscape.csv").set_index("hz").reindex(HZ_ORDER).reset_index()
     h["label"] = h.hz.map(HZ_LABEL)
     S["horizon"] = rec(h)
-    cat = csv("01_volume_by_category_horizon.csv").set_index("category")
-    cat = cat[[c for c in HZ_ORDER if c in cat] + ["total"]].sort_values("total", ascending=False).head(12) / 1e6
-    S["cat_horizon"] = rec(cat.reset_index())
     t = csv("06_trades_by_horizon.csv").set_index("hz")
     t = t.reindex(HZ_ORDER).reset_index()
     t["label"] = t.hz.map(HZ_LABEL)
     S["trades_hz"] = rec(t)
-    S["trades_long_group"] = rec(csv("06_trades_long_by_group.csv"))
     S["vol_to_close"] = rec(csv("02_volume_to_close.csv"))
 
     S["accuracy"] = {H: rec(csv(f"03_accuracy_h{H}.csv")) for H in (90, 180, 365)}
     S["accuracy_group"] = rec(csv("03_accuracy_by_group.csv"))
-    S["calibration"] = {k: rec(csv(f"03_calibration_k{k}.csv")) for k in (30, 90, 180)}
 
     q8 = csv("08_quintiles.csv")
     S["liq_quintiles"] = rec(q8[q8.k == 30])
-    S["liq_regression"] = rec(csv("08_regression.csv"))
     f8 = pd.read_parquet(res / "08_market_features.parquet")
-    S["liq_n"] = {int(k): {"markets": int(len(d)), "events": int(d.event_ticker.nunique())} for k, d in f8.groupby("k")}
     S["liq_equal"] = rec(csv("08_equal_sure.csv"))
     S["liq_equal_sig"] = rec(csv("08_equal_sure_sig.csv"))
     S["liq_near"] = rec(csv("08_near_certain.csv"))
@@ -82,20 +79,21 @@ def core(res, data):
     S["fav_ref"] = rec(csv("09_fav_reference_4060.csv"))
     S["tail"] = rec(csv("11_resolution_timing.csv"))
 
-    mk = pd.read_parquet(data / "markets.parquet", columns=["ticker", "status", "volume", "open_time", "close_time"])
+    mk = pd.read_parquet(data / "markets.parquet", columns=["ticker", "status", "volume", "open_time", "close_time", "category"])
     cd_t = pd.read_parquet(data / "candles_daily.parquet", columns=["ticker"]).ticker.unique()
-    lm = mk[(mk.close_time - mk.open_time).dt.total_seconds() / 86400 >= 90]
+    lm_all = mk[(mk.close_time - mk.open_time).dt.total_seconds() / 86400 >= 90]
+    lm = lm_all[~lm_all.category.isin(EXCLUDE)]
     settled = lm[lm.status == "finalized"]
-    active = settled[settled.volume >= 100]
+    active = settled[settled.volume > 0]
     S["funnel"] = {
-        "listed_90d": len(lm), "open": int((lm.status == "active").sum()),
+        "listed_90d": len(lm_all), "excluded": len(lm_all) - len(lm), "open": int((lm.status == "active").sum()),
         "other_status": int((~lm.status.isin(["active", "finalized"])).sum()), "settled": len(settled),
-        "under_100": int((settled.volume < 100).sum()),
+        "never_traded": int((settled.volume <= 0).sum()),
         "no_bars": int((~active.ticker.isin(set(cd_t))).sum()),
         "used": int(active.ticker.isin(set(cd_t)).sum()),
     }
     S["samples"] = {
-        "horizon_markets": int(mk.open_time.notna().mul(mk.close_time.notna()).sum()),
+        "horizon_markets": int(mk[~mk.category.isin(EXCLUDE)].pipe(lambda d: d.open_time.notna() & d.close_time.notna()).sum()),
         "accuracy": {H: int(csv(f"03_accuracy_h{H}.csv").markets.iloc[0]) for H in (90, 180, 365)},
         "accuracy_group": csv("03_accuracy_by_group.csv").query("k == 1").set_index("group").markets.astype(int).to_dict(),
         "calibration": {k: int(csv(f"03_calibration_k{k}.csv").n.sum()) for k in (30, 90, 180)},
@@ -114,14 +112,9 @@ def csv(name, **kw):
 
 
 # ---- Kalshi-only pieces --------------------------------------------------------------------
-share = csv("06_contract_share_noncombo.csv").set_index("hz")
-S["trades_share_noncombo"] = {k: float(share.loc[k, "share_noncombo_contracts"]) for k in HZ_ORDER}
-S["combo"] = {"share_contracts": 0.478, "share_trades": 0.102, "share_yes_dollars": 0.106}
-S["favlong"] = rec(csv("05_favourite_longshot_returns.csv"))
 S["reg10"] = rec(csv("10_brier_volume_regressions.csv"))
 S["reg10_cat"] = rec(csv("10_category_mix.csv"))
 S["reg10_bycat"] = rec(csv("10_by_category.csv"))
-S["fresh"] = rec(csv("09_reward_info_fresh.csv"))
 
 # ---- rewards --------------------------------------------------------------------------------
 ip = pd.read_parquet(DATA / "incentive_programs.parquet")
@@ -143,20 +136,12 @@ S["reward_totals"] = {"usd": round(ip.usd.sum()), "programs": len(ip), "paid_sha
 cov = csv("04_reward_coverage_by_horizon.csv").set_index("hz").loc[HZ_ORDER].reset_index()
 cov["label"] = cov.hz.map(HZ_LABEL)
 S["reward_coverage"] = rec(cov)
-S["reward_coverage_group"] = rec(csv("04_reward_coverage_long_by_group.csv"))
 S["reward_effects"] = rec(csv("04_reward_effects_twfe.csv"))
 S["info_effects"] = rec(csv("05_info_vs_activity_twfe.csv"))
 S["event_study"] = rec(csv("04_long_dated_event_study.csv"))
 
 # ---- open markets now -----------------------------------------------------------------------
 om = pd.read_parquet(DATA / "open_markets_enriched.parquet")
-om["hz"] = om.horizon.astype(str)
-g = om.groupby("hz")
-o = pd.DataFrame({"markets": g.size(), "traded_ever": g.volume_fp.apply(lambda v: (v > 0).mean()),
-                  "traded_24h": g.volume_24h_fp.apply(lambda v: (v > 0).mean()),
-                  "two_sided": g.two_sided.mean(), "spread_med": g.spread.median()}).loc[HZ_ORDER].reset_index()
-o["label"] = o.hz.map(HZ_LABEL)
-S["open_now"] = rec(o)
 S["open_snapshot"] = {"markets": len(om), "time": str(om.snapshot_time.iloc[0])[:16],
                       "over_1y": int((om.days_to_close > 365).sum())}
 ob = pd.read_parquet(DATA / "orderbooks_enriched.parquet")

@@ -13,7 +13,6 @@ const isPM = () => PLAT === 'polymarket' && !!(S_ALL && S_ALL.pm);
 const PNAME = () => isPM() ? 'Polymarket' : 'Kalshi';
 const tex = (src, display = false) => { const e = h(display ? 'div' : 'span'); if (window.katex) katex.render(src, e, { displayMode: display, throwOnError: false }); else e.textContent = src; return e; };
 const SHORT = { '<1d': '< 1d', '1-7d': '1–7d', '7-30d': '1–4w', '1-3m': '1–3m', '3-6m': '3–6m', '6-12m': '6–12m', '1-2y': '1–2y', '>2y': '> 2y' };
-const DSHORT = { '>365d': '> 1y', '180-365d': '6–12m', '90-180d': '3–6m', '30-90d': '1–3m', '7-30d': '1–4w', '1-7d': '1–7d', '0-1d': 'final day' };
 
 function infoIcon(text) { const i = h('span', { class: 'info', tabindex: '0', 'aria-label': Array.isArray(text) ? text.join('. ') : text }); i.textContent = 'i'; const show = () => { const d = document.createElement('div'); if (Array.isArray(text)) { const ul = document.createElement('ul'); ul.className = 'tipul'; text.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }); d.appendChild(ul); } else d.textContent = text; d.style.maxWidth = '340px'; const b = i.getBoundingClientRect(); C.showTip({ clientX: b.right, clientY: b.bottom }, d); }; i.addEventListener('pointerenter', show); i.addEventListener('focus', show); i.addEventListener('pointerleave', C.hideTip); i.addEventListener('blur', C.hideTip); return i; }
 const card = (title, sub, how, cls = 'card') => h('div', { class: cls }, h('h3', {}, title, how ? infoIcon(how) : null), sub ? h('div', { class: 'sub' }, sub) : null);
@@ -21,17 +20,7 @@ function pageHead(main, title, lead) { main.append(h('h2', { class: 'pagetitle' 
 function sectionHead(main, title, desc) { main.append(h('div', { class: 'section' }, h('h3', {}, title), desc ? h('p', {}, desc) : null)); }
 function tile(v, l, s) { return h('div', { class: 'tile' }, h('div', { class: 'v' }, v), h('div', { class: 'l' }, l), s ? h('div', { class: 's' }, s) : null); }
 function simpleTable(cols, rows) { return h('div', { class: 'tablewrap' }, h('table', {}, h('thead', {}, h('tr', {}, cols.map(c => h('th', { class: c.num ? 'num' : '' }, c.label, c.tip ? infoIcon(c.tip) : null)))), h('tbody', {}, rows.map(r => h('tr', {}, cols.map(c => h('td', { class: (c.num ? 'num ' : '') + (c.cls ? c.cls(r) : '') }, c.render ? c.render(r) : r[c.key] ?? '–'))))))); }
-function sortTable(cols, rows, key, desc = true) {
-  const wrap = h('div', { class: 'tablewrap' });
-  function draw() {
-    const rs = [...rows].sort((a, b) => { const x = a[key], y = b[key]; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * (desc ? -1 : 1); });
-    const thead = h('thead', {}, h('tr', {}, cols.map(c => h('th', { class: (c.num ? 'num ' : '') + (key === c.key ? 'sorted ' + (desc ? '' : 'asc') : ''), onclick: () => { if (key === c.key) desc = !desc; else { key = c.key; desc = !!c.num; } draw(); } }, c.label))));
-    wrap.replaceChildren(h('table', {}, thead, h('tbody', {}, rs.map(r => h('tr', {}, cols.map(c => h('td', { class: c.num ? 'num' : '' }, c.render ? c.render(r) : r[c.key] ?? '–')))))));
-  }
-  draw(); return wrap;
-}
 const grid = (...cards) => h('div', { class: 'grid' }, ...cards);
-const link = (href, text) => h('a', { href }, text);
 
 // ------------------------------------------------------------------ Overview
 function pageOverview(main) {
@@ -40,7 +29,7 @@ function pageOverview(main) {
   const tabs = [
     ['horizons', 'Horizons', `Which markets exist, by how ${PM ? 'long they were open' : 'far ahead of their close they were listed'}, how many long markets are usable, and when long markets trade before resolving.`],
     ['accuracy', 'Accuracy', 'How accurate prices are at different distances from resolution: Brier score, calibration, accuracy by liquidity, and returns from buying favourites early.'],
-    ['regressions', 'Regression', `Whether days with more past trading have more accurate prices, in four specifications, by category${PM ? ' and by year the market closed' : ''}.`],
+    ['regressions', 'Regression', `Whether days with more past trading have more accurate prices, in five specifications, by category${PM ? ' and by year the market closed' : ''}.`],
     ['tail', 'Last days', 'Whether the outcome is already known before a market closes, and how much of the data comes from those days.'],
     ['rewards', 'Rewards', PM ? 'What can and can’t be seen about Polymarket’s reward programs.' : 'The programs Kalshi pays for liquidity and trading, which markets get them, and what changes on reward days.'],
     ['coverage', 'What we have', 'The data available, in plain terms, and what is missing.'],
@@ -49,13 +38,13 @@ function pageOverview(main) {
   ];
   main.append(h('ul', { class: 'findings' }, tabs.map(([href, name, text]) => h('li', {}, h('a', { href: '#/' + href }, h('b', {}, name)), ' — ' + text))));
   main.append(h('p', { class: 'muted small', style: 'margin-top:14px' }, PM
-    ? `Polymarket: resolved yes/no markets open at least a day that started from 30 Sep 2023; data to ${S.inventory.price_last}.`
-    : 'Kalshi: markets closing in 2026 or later, combo (parlay) markets excluded; data to 21 Sep 2026.'));
+    ? `Polymarket: resolved yes/no markets open at least a day that started from 30 Sep 2023; data to ${S.inventory.price_last}. Sports and crypto markets are left out.`
+    : 'Kalshi: markets closing in 2026 or later; combo (parlay) markets excluded; data to 21 Sep 2026. Sports and crypto markets are left out.'));
 }
 
 // ------------------------------------------------------------------ Horizons
 function pageHorizons(main) {
-  pageHead(main, 'Which markets exist, by horizon', isPM() ? 'Every Polymarket market, grouped by how long it was open (start to close).' : 'Every non-combo market, grouped by how far ahead of its close it was listed.');
+  pageHead(main, 'Which markets exist, by horizon', isPM() ? 'Every Polymarket market except sports and crypto, grouped by how long it was open (start to close).' : 'Every non-combo market except sports and crypto, grouped by how far ahead of its close it was listed.');
   const H = S.horizon, T = Object.fromEntries(S.trades_hz.map(r => [r.hz, r])), PM = isPM(), unit = PM ? 'shares' : 'contracts';
   const c3 = card('By horizon', null, null, 'card wide'); main.append(h('div', { class: 'grid' }, c3));
   c3.append(simpleTable([
@@ -67,21 +56,23 @@ function pageHorizons(main) {
     { key: 'size', label: 'Average trade size', num: true, render: r => fi(T[r.hz].mean_trade_size) }], H));
 
   const F = S.funnel;
-  const c4 = card(PM ? 'How many long markets are usable' : 'Why so few long markets have resolved', PM ? 'Markets open 3+ months, narrowed down to those resolved yes/no with enough trading and a price history.' : 'Markets listed 3+ months ahead, narrowed down to those settled with enough trading and a price history. Long markets that ended before 2026 are not in Kalshi’s data at all.', null, 'card wide');
+  const c4 = card(PM ? 'How many long markets are usable' : 'Why so few long markets have resolved', PM ? 'Markets open 3+ months, narrowed down to those resolved yes/no that traded and have a price history.' : 'Markets listed 3+ months ahead, narrowed down to those settled that traded and have a price history. Long markets that ended before 2026 are not in Kalshi’s data at all.', null, 'card wide');
   c4.append(simpleTable([{ key: 0, label: 'Step' }, { key: 1, label: 'Markets', num: true }, { key: 2, label: 'Why' }], PM ? [
     ['Open 3+ months', fi(F.listed_90d), 'All long markets in our data'],
+    ['− Sports and crypto', fi(F.excluded), 'Left out of the analyses'],
     ['− Still open', fi(F.open), 'They haven’t ended yet'],
     ['− Closed without a yes/no result', fi(F.other_status), 'Markets with more than two outcomes, or no clear 0/1 result'],
     [h('b', {}, 'Resolved yes/no'), h('b', {}, fi(F.settled)), 'Ended 2023 – 2026'],
-    ['− Traded under 100 shares', fi(F.under_100), 'Too little trading to show a pattern'],
+    ['− Never traded', fi(F.never_traded), 'No volume to split across time'],
     ['− No price history', fi(F.no_bars), 'Polymarket returned no daily prices'],
     [h('b', {}, 'Usable long markets'), h('b', {}, fi(F.used)), ''],
   ] : [
     ['Listed 3+ months before close', fi(F.listed_90d), 'All long markets in our data'],
+    ['− Sports and crypto', fi(F.excluded), 'Left out of the analyses'],
     ['− Still open', fi(F.open), 'They close later in 2026 or in 2027+, so they haven’t ended'],
     ['− Other statuses', fi(F.other_status), 'Closed but not yet settled, paused, or not yet open'],
     [h('b', {}, 'Already settled'), h('b', {}, fi(F.settled)), 'Ended between Jan and 21 Sep 2026'],
-    ['− Traded under 100 contracts', fi(F.under_100), 'Too little trading to show a pattern'],
+    ['− Never traded', fi(F.never_traded), 'No volume to split across time'],
     ['− No price history', fi(F.no_bars), 'Kalshi returned no hourly bars'],
     [h('b', {}, 'Usable long markets'), h('b', {}, fi(F.used)), ''],
   ]));
@@ -95,13 +86,21 @@ function pageHorizons(main) {
   const nG = g => (V.find(r => r.group === g) || {}).markets || 0;
   const series = key => GRP.map(([g, name]) => ({ name: `${name} (${fi(nG(g))})`, values: WIN.map(w => row(g, w)?.[key] ?? 0) }));
   sectionHead(main, 'When long markets trade', `The ${fi(F.used)} usable long markets above, split by how long they were open, by time left until they resolved. A market can only trade in windows it was open for, so a short market has no bars far out. Each window has a different length.`);
-  const v1 = card(`Average ${unit} traded in each window`, 'Per market in the group; a market not yet open counts as 0, so each group’s bars add up to its average lifetime volume.');
-  C.vbar(v1, WIN.map(w => VLAB[w]), series('avg_volume'), { fmtV: big, H: 240 });
+  const totG = (g, key) => WIN.reduce((a, w) => a + (row(g, w)?.[key] ?? 0), 0);
+  const nWC = (V.find(r => r.group === '>1y') || {}).wc_markets || 0, hasWC = totG('>1y', 'avg_volume_wc') > 0.1 * totG('>1y', 'avg_volume');   // split shown only when the World Cup is a big part
+  const v1 = card(`Average ${unit} traded in each window`, 'Per market in the group; a market not yet open counts as 0, so each group’s bars add up to its average lifetime volume.' + (hasWC ? ' The lighter top of each bar is markets about the 2026 World Cup.' : ''));
+  if (!hasWC) C.vbar(v1, WIN.map(w => VLAB[w]), series('avg_volume'), { fmtV: big, H: 240 });
+  else C.vbarGS(v1, WIN.map(w => VLAB[w]), GRP.map(([g, name], k) => ({ name: `${name} (${fi(nG(g))})`, color: C.SERIES[k], parts: [
+    { name: 'other markets', values: WIN.map(w => (row(g, w)?.avg_volume ?? 0) - (row(g, w)?.avg_volume_wc ?? 0)) },
+    { name: 'World Cup markets', values: WIN.map(w => row(g, w)?.avg_volume_wc ?? 0), opacity: 0.4 }] })), { fmtV: big, H: 240 });
   const v2 = card('Share of lifetime volume in each window', 'The part of each market’s lifetime volume traded in that window, averaged over the group; each group’s bars add up to 100%.');
   C.vbar(v2, WIN.map(w => VLAB[w]), series('share_of_volume'), { fmtV: v => pct(v, v < 0.01 ? 1 : 0), H: 240 });
   const sum = (g, key, ws) => ws.reduce((a, w) => a + (row(g, w)?.[key] ?? 0), 0);
   const EARLY = ['>365d', '180-365d'], LATE = ['30-90d', '7-30d', '1-7d', '0-1d'];
-  v1.append(h('p', { class: 'note' }, `Markets open over a year trade about ${big(sum('>1y', 'avg_volume', EARLY))} ${unit} each more than 6 months before resolving, against ${big(sum('>1y', 'avg_volume', LATE))} in the last 3 months.`));
+  const wcShare = sum('>1y', 'avg_volume_wc', WIN) / sum('>1y', 'avg_volume', WIN);
+  v1.append(h('p', { class: 'note' }, hasWC && wcShare > 0.5
+    ? `The tall bars for markets open over a year are mostly ${fi(nWC)} markets about the 2026 World Cup (${pct(wcShare)} of that group’s volume); the other long markets trade much less.`
+    : `Markets open over a year trade about ${big(sum('>1y', 'avg_volume', EARLY))} ${unit} each more than 6 months before resolving, against ${big(sum('>1y', 'avg_volume', LATE))} in the last 3 months.`));
   v2.append(h('p', { class: 'note' }, `Even markets open over a year do only ${pct(sum('>1y', 'share_of_volume', EARLY))} of their trading more than 6 months out and ${pct(sum('>1y', 'share_of_volume', LATE))} in the last 3 months (markets open 6–12 months: ${pct(sum('6-12m', 'share_of_volume', EARLY))} and ${pct(sum('6-12m', 'share_of_volume', LATE))}).`));
   main.append(grid(v1, v2));
 }
@@ -119,11 +118,9 @@ function pageAccuracy(main) {
   C.line(c1, ks.map(lab), [
     { name: `open 1+ year (${fi(Y[1].markets)})`, values: ks.map(k => Y[k]?.brier ?? null) },
     { name: `open 180+ days (${fi(A[1].markets)})`, values: ks.map(k => A[k]?.brier ?? null) }], { fmtV: f3, ymin: 0, fmtX: x => x, H: 170 });
-  const by = S.accuracy_group, groups = ['Econ/Fin', 'Politics', 'Sports', 'Tech/AI/Co', 'Other'], eb = k => by.find(r => r.group === 'Econ/Fin' && r.k === k);
+  const by = S.accuracy_group, groups = ['Econ/Fin', 'Politics', 'Sports', 'Tech/AI/Co', 'Other'].filter(g => by.some(r => r.group === g));
   const at90 = groups.map(g => by.find(r => r.group === g && r.k === 90)).filter(Boolean).sort((a, b) => b.brier - a.brier);
-  const c2 = isPM()
-    ? card('By market type', `${at90[0].group} markets are the least accurate 90 days out (${f3(at90[0].brier)}), ${at90[at90.length - 1].group} the most (${f3(at90[at90.length - 1].brier)}).`, ['Markets open 90+ days, same markets at each point', 'Groups: ' + groups.map(g => `${g} ${fi(by.find(r => r.group === g)?.markets)}`).join(' · ')])
-    : card('By market type', `Economic markets are the least accurate at every distance (${f2(eb(90).brier)} at 90 days vs 0.13–0.15 for the others).`, ['Markets open 90+ days, same markets at each point', 'Groups are small (Tech/AI has 40 markets), so treat differences as rough']);
+  const c2 = card('By market type', `${at90[0].group} markets are the least accurate 90 days out (${f3(at90[0].brier)}), ${at90[at90.length - 1].group} the most (${f3(at90[at90.length - 1].brier)}).`, ['Markets open 90+ days, same markets at each point', 'Groups: ' + groups.map(g => `${g} ${fi(by.find(r => r.group === g)?.markets)}`).join(' · '), 'Small groups are noisy; treat differences as rough']);
   C.line(c2, ['90 days', '30 days', '7 days', '1 day'], groups.map(g => ({ name: `${g} (${fi(by.find(r => r.group === g)?.markets)})`, values: [90, 30, 7, 1].map(k => by.find(r => r.group === g && r.k === k)?.brier ?? null) })), { fmtV: f3, ymin: 0, fmtX: x => x, H: 170 });
   main.append(grid(c1, c2));
   const CB = S.cal_by_h, CC = S.cal_curves, allK = k => CB.find(r => r.k === k && r.sample.startsWith('all')), fixK = k => CB.find(r => r.k === k && r.sample.startsWith('same'));
@@ -165,34 +162,28 @@ function pageAccuracy(main) {
     row.replaceChildren(left, right);
     const sigs = bands.map(b => S.liq_equal_sig.find(r => r.measure === k && r.band === b)).filter(x => x && x.p < 0.05);
     const qq = [1, 5].map(q => S.liq_quintiles.find(r => r.measure === k && r.quintile === q));
-    if (isPM()) { takeaway.textContent = `Left: the least liquid group scores ${f3(qq[0].brier)}, the most liquid ${f3(qq[1].brier)}. Right: at equal price sureness, the more liquid half is significantly better in ${sigs.filter(x => x.diff_less_minus_more > 0).length} of 4 groups and significantly worse in ${sigs.filter(x => x.diff_less_minus_more < 0).length}.`; return; }
-    takeaway.textContent = {
-      spread: 'Left: tighter-spread groups score better, and their prices crowd near 0¢. Right: at equal price sureness the two halves score about the same; no difference is significant.',
-      open_interest: 'Left: groups with more contracts held score better, and their prices crowd near 0¢. Right: at equal price sureness the halves mostly score alike; the liquid half is better only for fairly sure prices (5–20¢ or 80–95¢).',
-      volume: 'Left: groups with more trading score better, and their prices lean toward 0¢. Right: at equal price sureness the halves mostly score alike; the liquid half is better only for fairly sure prices (5–20¢ or 80–95¢).',
-      days_traded: 'Left: no steady pattern; markets that trade almost every day score worse, and their prices are not more sure. Right: no significant differences at equal price sureness.',
-    }[k];
+    const nb = sigs.filter(x => x.diff_less_minus_more > 0).length, nw = sigs.length - nb;
+    takeaway.textContent = `Left: the least liquid group scores ${f3(qq[0].brier)}, the most liquid ${f3(qq[1].brier)}. Right: at equal price sureness, ${nb + nw === 0 ? 'no difference between the halves is significant' : `the more liquid half is significantly better in ${nb} of 4 groups and significantly worse in ${nw}`}.`;
   }
   drawLiq();
 
   // 3 ── capital lockup
-  sectionHead(main, '3. A cost to tying up money?', isPM() ? 'If waiting months for the payout were costly, buying the likely outcome early and holding to resolution should pay more than buying late. The waiting cost should matter most for favourites, where a lot of money is locked up for a small profit.' : 'Buying the likely outcome and holding to resolution pays more the earlier you buy, as if waiting months for the payout is costly. The waiting cost should matter most for favourites, where a lot of money is locked up for a small profit.');
+  sectionHead(main, '3. A cost to tying up money?', 'If waiting months for the payout were costly, buying the likely outcome early and holding to resolution should pay more than buying late. The waiting cost should matter most for favourites, where a lot of money is locked up for a small profit.');
   const FR = S.fav_rob.filter(r => r.price === 'midpoint else last trade (baseline)'), ks3 = [180, 90, 30, 7, 1];
   const f80 = FR.find(r => r.threshold === 0.8 && r.k === 180);
   const f90 = FR.find(r => r.threshold === 0.9 && r.k === 180), refs = S.fav_ref.map(r => r.return);
-  const cf = isPM()
-    ? card('Return from buying favourites and holding to resolution', `Returns are small and mostly not significant. The clearest is ≥90% at 180 days: ${pct(f90.return, 1)} (95% CI ${pct(f90.ci_lo, 1)} to ${pct(f90.ci_hi, 1)}, ${f90.events} events). Buying near-50/50 markets (40–60¢) ${Math.max(...refs) < 0 ? 'loses money at every distance' : 'bounces around zero'}.`, ['Return = came true ÷ price − 1 (Polymarket’s daily price), averaged within each event, then across events', 'Events per point, 180 → 1 days: ≥70% ' + ks3.map(k => FR.find(r => r.threshold === 0.7 && r.k === k)?.events ?? '–').join(' / ') + '; ≥90% ' + ks3.map(k => FR.find(r => r.threshold === 0.9 && r.k === k)?.events ?? '–').join(' / ')], 'card wide')
-    : card('Return from buying favourites and holding to resolution', `All three favourite thresholds rise the earlier you buy; buying near-50/50 markets (40–60¢) shows no such rise and bounces around zero. Few points are statistically clear: ≥80% at 180 days returns ${pct(f80.return, 1)} (95% CI ${pct(f80.ci_lo, 1)} to ${pct(f80.ci_hi, 1)}, ${f80.events} events). Using midpoint-only prices gives the same pattern; last-trade prices give lower returns (buyers pay the ask) that still rise with horizon.`, ['Return = came true ÷ price − 1 (midpoint, else last trade), averaged within each event, then across events', 'Events per point, 180 → 1 days: ≥70% ' + ks3.map(k => FR.find(r => r.threshold === 0.7 && r.k === k)?.events ?? '–').join(' / ') + '; ≥90% ' + ks3.map(k => FR.find(r => r.threshold === 0.9 && r.k === k)?.events ?? '–').join(' / '), 'The 40–60¢ reference is noisy (95% CIs about ±10–18%)', 'Full table with intervals and all price definitions: results/09_favourite_robustness.csv'], 'card wide');
+  const f80_1 = FR.find(r => r.threshold === 0.8 && r.k === 1), ref180 = S.fav_ref.find(r => r.k === 180);
+  const cf = card('Return from buying favourites and holding to resolution', `Buying markets priced ≥ 80% 180 days before close returned ${pct(f80.return, 1)} (95% CI ${pct(f80.ci_lo, 1)} to ${pct(f80.ci_hi, 1)}, ${f80.events} events), against ${pct(f80_1.return, 1)} one day before. Near-50/50 markets (40–60¢) returned ${pct(ref180.return, 1)} at 180 days (95% CI ${pct(ref180.ci_lo, 1)} to ${pct(ref180.ci_hi, 1)}).`, ['Return = came true ÷ price − 1, averaged within each event, then across events', 'Events per point, 180 → 1 days: ≥70% ' + ks3.map(k => FR.find(r => r.threshold === 0.7 && r.k === k)?.events ?? '–').join(' / ') + '; ≥90% ' + ks3.map(k => FR.find(r => r.threshold === 0.9 && r.k === k)?.events ?? '–').join(' / '), 'Full table with intervals and other price definitions: results/09_favourite_robustness.csv'], 'card wide');
   C.line(cf, ks3.map(klab), [
     ...[0.9, 0.8, 0.7].map(t => ({ name: `favourites, price ≥ ${Math.round(t * 100)}%`, values: ks3.map(k => FR.find(r => r.threshold === t && r.k === k)?.return ?? null) })),
-    { name: 'near 50/50 (40–60¢), for reference', values: ks3.map(k => S.fav_ref.find(r => r.k === k)?.return ?? null), dash: '5 4', color: 'var(--muted)' }], { fmtV: v => (v > 0 ? '+' : '') + pct(v, 1), fmtX: x => x + ' before close', ymin: isPM() ? Math.min(-0.06, ...refs) : -0.06, ymax: 0.08, W: 900, H: 220 });
+    { name: 'near 50/50 (40–60¢), for reference', values: ks3.map(k => S.fav_ref.find(r => r.k === k)?.return ?? null), dash: '5 4', color: 'var(--muted)' }], { fmtV: v => (v > 0 ? '+' : '') + pct(v, 1), fmtX: x => x + ' before close', ymin: Math.min(-0.06, ...refs.filter(v => v != null)), ymax: Math.max(0.08, ...FR.map(r => r.return).filter(v => v != null)), W: 900, H: 220 });
   main.append(h('div', { class: 'grid' }, cf));
 }
 
 // ------------------------------------------------------------------ Regression
 function pageRegressions(main) {
   const wrap = h('div', { class: 'narrow', style: 'max-width:1440px' }); main.append(wrap); main = wrap;
-  pageHead(main, 'Does more trading go with more accurate prices?', 'Regressions of each market’s daily Brier score on how much it had traded so far.');
+  pageHead(main, 'Does more trading go with more accurate prices?', 'Regressions of each market’s daily Brier score on how much it had traded so far. Sports and crypto markets are left out.');
   const VARIANTS = [['drop last day', 'Drop each market’s last day'], ['all days', 'All days']];
   let variant = VARIANTS[0][0];
   const DATA = () => isPM()
@@ -310,36 +301,29 @@ function pageRegressions(main) {
     if (BC.length) res.append(h('p', { class: 'note' }, `In spec (4), more volume goes with significantly lower Brier in ${ka} of ${na} categories across all markets, and in ${kl} of ${nl} categories among markets open more than 180 days.`));
 
     sectionHead(res, 'Conclusion');
+    const sig = x => x && pval(x.t) < 0.05;
+    const summOf = rows => { const xs = SPECS.map(sp => rows.find(r => r.spec === sp && r.term === 'log_cum_vol')).filter(Boolean); return [xs.filter(x => x.coef < 0 && sig(x)).length, xs.filter(x => x.coef > 0 && sig(x)).length, xs.length]; };
+    const line = (smp, label) => { const [neg, pos, n] = summOf(RG().filter(r => r.sample === smp)), f = first(smp), b3 = get(smp, SPECS[2], 'log_cum_vol');
+      const within = b3 ? `Within the same market (3), doubling cumulative volume ${b3.coef < 0 ? 'lowers' : 'raises'} Brier by about ${(Math.abs(b3.coef) * Math.LN2).toFixed(3)}${sig(b3) ? '' : ' (not significant)'}` : '';
+      return `${label}: more past trading goes with significantly lower Brier in ${neg} of ${n} specifications${pos ? `, and significantly higher Brier in ${pos}` : ''}. ${within}, against an average of ${f2(f.mean_brier)} (${fi(f.events)} events).`; };
+    const items = [line(A, 'All markets'), line(L, 'Markets open more than 180 days')];
     if (isPM()) {
-      const summ = smp => { const xs = SPECS.map(sp => get(smp, sp, 'log_cum_vol')).filter(Boolean); return [xs.filter(x => x.coef < 0 && pval(x.t) < 0.05).length, xs.filter(x => x.coef > 0 && pval(x.t) < 0.05).length, xs.length]; };
-      const line = (smp, label) => { const [neg, pos, n] = summ(smp), f = first(smp), b3 = get(smp, SPECS[2], 'log_cum_vol');
-        return `${label}: more past trading goes with significantly lower Brier in ${neg} of ${n} specifications${pos ? `, and higher Brier in ${pos}` : ''}. Within the same market (3), doubling cumulative volume lowers Brier by about ${b3 ? (-b3.coef * Math.LN2).toFixed(3) : '–'}, against an average of ${f2(f.mean_brier)} (${fi(f.events)} events).`; };
-      const kL = S.reg10.find(r => r.sample === L && (r.variant || 'all days') === variant);
-      const c = h('div', { class: 'card wide' });
-      c.append(h('ul', { class: 'plain' },
-        h('li', {}, line(A, 'All markets')),
-        h('li', {}, line(L, 'Markets open more than 180 days')),
-        h('li', {}, `Polymarket has far more long markets than the Kalshi archive: ${fi(first(L).events)} events open more than 180 days here, against ${fi(kL.events)} on Kalshi, where long markets showed no consistent link.`),
-        h('li', {}, 'Polymarket’s price series has no bid/ask, so stale prices cannot be removed: days without trading keep the last price. That ties low volume to flat Brier and may make the volume effect look larger.'),
-        h('li', {}, 'Volume is not randomly assigned: it builds up as news arrives and expiry approaches, so these are associations, not causal effects.')));
-      res.append(h('div', { class: 'grid' }, c));
-      return;
+      const kRows = S.reg10.filter(r => (r.variant || 'all days') === variant && r.sample === L), [kn, kp, kt] = summOf(kRows), kL = kRows[0];
+      items.push(`Polymarket has more long markets than the Kalshi archive: ${fi(first(L).events)} events open more than 180 days here, against ${fi(kL.events)} on Kalshi, where more trading goes with significantly lower Brier in ${kn} of ${kt} specifications for long markets.`,
+        'Polymarket’s price series has no bid/ask, so stale prices cannot be removed: days without trading keep the last price. That ties low volume to flat Brier and may make the volume effect look larger.');
+    } else {
+      const b3 = get(A, SPECS[2], 'log_cum_vol'), b4 = get(A, SPECS[3], 'log_cum_vol');
+      const getV = (v, spec) => S.reg10.find(r => (r.variant || 'all days') === v && r.sample === A && r.spec === spec && r.term === 'log_cum_vol');
+      const firstV = v => S.reg10.find(r => (r.variant || 'all days') === v && r.sample === A);
+      const w3 = getV('all days', SPECS[2]), d3 = getV('drop last day', SPECS[2]), dropped = 1 - firstV('drop last day').n / firstV('all days').n;
+      const dtx = get(A, SPECS[2], 'days_to_exp');
+      items.push(`Replacing the straight-line days to expiry (3) with bins (4) changes the within-market volume effect from ${b3.coef.toFixed(4)} to ${b4.coef.toFixed(4)}${sig(b4) ? '' : ' (not significant)'}.`,
+        `Dropping each market’s last day removes ${pct(dropped, 0)} of all-market rows; the within-market volume effect (3) goes from ${w3.coef.toFixed(4)} to ${d3.coef.toFixed(4)}${sig(d3) ? '' : ' (not significant)'}.`,
+        `Days to expiry: within the same market (3), each extra day before expiry changes Brier by ${dtx.coef > 0 ? '+' : ''}${dtx.coef.toFixed(4)}${sig(dtx) ? '' : ' (not significant)'}.`);
     }
-    const getV = (v, smp, spec, term) => S.reg10.find(r => (r.variant || 'all days') === v && r.sample === smp && r.spec === spec && r.term === term);
-    const firstV = (v, smp) => S.reg10.find(r => (r.variant || 'all days') === v && r.sample === smp);
-    const b1 = get(A, SPECS[0], 'log_cum_vol'), b3 = get(A, SPECS[2], 'log_cum_vol'), b4 = get(A, SPECS[3], 'log_cum_vol');
-    const w3 = getV('all days', A, SPECS[2], 'log_cum_vol'), d3 = getV('drop last day', A, SPECS[2], 'log_cum_vol');
-    const dropped = 1 - firstV('drop last day', A).n / firstV('all days', A).n;
-    const dtx = get(A, SPECS[2], 'days_to_exp');
-    const dbl = x => (Math.abs(x.coef) * Math.LN2).toFixed(3);
+    items.push('Volume is not randomly assigned: it builds up as news arrives and expiry approaches, so these are associations, not causal effects.');
     const c3 = h('div', { class: 'card wide' });
-    c3.append(h('ul', { class: 'plain' },
-      h('li', {}, `Across all markets, days with more past trading have lower Brier scores in every specification. Doubling cumulative volume lowers Brier by about ${dbl(b1)} across markets (1), ${dbl(b3)} within the same market (3), and ${dbl(b4)} once days to expiry enters as bins (4), against an average of ${f2(first(A).mean_brier)}.`),
-      h('li', {}, `The straight-line days-to-expiry term in (3) misses how accuracy actually changes near the close; with bins (4) the within-market volume effect is ${pct(1 - b4.coef / b3.coef, 0)} smaller.`),
-      h('li', {}, `Dropping each market’s last day removes another ${pct(dropped, 0)} of all-market rows (many last days have no two-sided quote and are already gone). The within-market volume effect (3) shrinks from ${w3.coef.toFixed(4)} to ${d3.coef.toFixed(4)}, but stays clearly significant.`),
-      h('li', {}, 'For markets open more than 180 days there is no consistent link, with or without the last day: the sign flips across specifications, and the only significant estimate (2) says more volume goes with worse accuracy.'),
-      h('li', {}, `Days to expiry: within the same market (3) each extra day raises Brier by about ${dtx.coef.toFixed(4)}; across all markets (1, 2) it is near zero. For markets open over 180 days it is positive in every specification.`),
-      h('li', {}, 'Volume is not randomly assigned: it builds up as news arrives and expiry approaches, so these are associations, not causal effects.')));
+    c3.append(h('ul', { class: 'plain' }, items.map(t => h('li', {}, t))));
     res.append(h('div', { class: 'grid' }, c3));
   }
   draw();
@@ -348,7 +332,7 @@ function pageRegressions(main) {
 // ------------------------------------------------------------------ Last days
 function pageTail(main) {
   const wrap = h('div', { class: 'narrow tail' }); main.append(wrap); main = wrap;
-  pageHead(main, 'The last days of a market', `Is the outcome already known before a market closes, and how much of the regression data comes from those days? Settled ${PNAME()} markets, same daily prices as the Regression tab.`);
+  pageHead(main, 'The last days of a market', `Is the outcome already known before a market closes, and how many days of data come from that stretch? Settled ${PNAME()} markets other than sports and crypto.`);
   const T = S.tail, row = g => T.find(r => r.group === g);
   const GROUPS = [['all', 'All markets'], ['< 1 day', 'Under 1 day'], ['1-7 days', '1–7 days'], ['7-30 days', '1–4 weeks'], ['30-180 days', '1–6 months'], ['> 180 days', 'Over 6 months']];
   const rows = GROUPS.map(([k, label]) => ({ ...row(k), label }));
@@ -364,23 +348,23 @@ function pageTail(main) {
       { key: 'c', label: 'Resolved > 1 day before the scheduled end date', num: true, render: r => r.markets ? pct(r.close_before_expected_over_1d, 0) : '–' },
       { key: 'd', label: 'Share of market-days after the scheduled end', num: true, render: r => r.markets ? pct(r.rows_after_expected, 1) : '–' }], rows),
     'Polymarket settles through a proposal-and-challenge process, which can take days after the scheduled end; the close time used here is when the market resolved. Markets open under a day are not in the Polymarket sample.');
-  else section('1. Are markets resolved late?', 'Rarely. Almost every Kalshi market closes as soon as the outcome is known.',
+  else section('1. Are markets resolved late?', `${pct(row('all').close_after_expected_over_1d, 1)} of markets traded more than a day past the expected outcome time, and ${pct(row('all').settle_lag_over_1d, 1)} were paid out more than a day after trading stopped.`,
     simpleTable([lab, n,
       { key: 'a', label: 'Traded > 1 day past the expected outcome time', num: true, render: r => pct(r.close_after_expected_over_1d, 1) },
       { key: 'b', label: 'Paid out > 1 day after trading stopped', num: true, render: r => pct(r.settle_lag_over_1d, 1) },
       { key: 'c', label: 'Closed > 1 day before the scheduled date', num: true, render: r => pct(r.close_before_expected_over_1d, 0) }], rows),
     'Closing before the scheduled date is normal: the event happened early (e.g. an election was called), and the market closed then.');
 
-  section('2. Does the last day already show the answer?', PM ? `For long markets, yes (${pct(L6.final_day_locked)} within 2¢ of the outcome); for short ones, mostly not, because Polymarket’s daily price is taken at the start of the day (00:00 UTC), before most events happen.` : 'Usually. And in short markets the last day is a large share of all rows.',
+  section('2. Does the last day already show the answer?', PM ? `For long markets, yes (${pct(L6.final_day_locked)} within 2¢ of the outcome); for short ones, mostly not, because Polymarket’s daily price is taken at the start of the day (00:00 UTC), before most events happen.` : `For ${pct(row('all').final_day_locked)} of markets the last-day price was within 2¢ of the outcome; last days are ${pct(row('all').rows_final_day)} of all market-days.`,
     simpleTable([lab, n,
       { key: 'a', label: 'Last-day price within 2¢ of the outcome', num: true, render: r => r.markets ? pct(r.final_day_locked, 0) : '–' },
       { key: 'b', label: 'Share of market-days that are a last day', num: true, render: r => r.markets ? pct(r.rows_final_day, r.rows_final_day < 0.01 ? 1 : 0) : '–' },
       { key: 'c', label: 'Brier, last day', num: true, render: r => f3(r.brier_final_day) },
       { key: 'd', label: 'Brier, other days', num: true, render: r => f3(r.brier_other_days) }], rows),
-    PM ? 'On Polymarket the last day’s score is close to other days’ for short markets, so dropping it matters less than on Kalshi.' : 'The last day has the most past trading and a near-perfect score, so in the all-markets sample it pushes the regression toward “more volume, more accurate”. Counts here include days priced by a last trade; the regression now keeps only days with a two-sided quote, which already removes most last days.');
+    PM ? 'On Polymarket the last day’s score is close to other days’ for short markets, so dropping it matters less than on Kalshi.' : 'The last day has the most past trading and a near-perfect score, so it pushes a volume-and-accuracy regression toward “more volume, more accurate”. Counts here include days priced by a last trade.');
 
   const LONG = [['> 180 days', 'All'], ...T.filter(r => r.group.startsWith('> 180 days: ')).map(r => [r.group, r.group.slice(12)])];
-  section('3. Long markets: prices sitting at the answer for weeks', PM ? `Markets open over 6 months. Very common: a median of ${fi(L6.locked_tail_days_median)} days at the answer before resolving, and these days are ${pct(L6.rows_in_locked_tail)} of rows.` : 'Markets open over 6 months. Common in elections, but these days are a small share of rows.',
+  section('3. Long markets: prices sitting at the answer for weeks', `Markets open over 6 months: a median of ${fi(L6.locked_tail_days_median)} days at the answer before ${PM ? 'resolving' : 'closing'}; ${pct(L6.locked_tail_over_7d)} of them spend more than a week there, and these days are ${pct(L6.rows_in_locked_tail)} of their market-days.`,
     simpleTable([{ key: 'label', label: 'Category', render: r => r.label }, n,
       { key: 'a', label: 'Median days at the answer before closing', num: true, render: r => fi(r.locked_tail_days_median) },
       { key: 'b', label: 'Markets with > 7 such days', num: true, render: r => pct(r.locked_tail_over_7d, 0) },
@@ -416,7 +400,7 @@ function pageRewardsPM(main) {
 
 function pageCoveragePM(main) {
   const I = S.inventory;
-  pageHead(main, 'What data we have, in plain terms', 'A quick guide to what the Polymarket data can and can’t show. The Data tab has the counts.');
+  pageHead(main, 'What data we have, in plain terms', 'A quick guide to what the Polymarket data can and can’t show. The analyses leave out sports and crypto markets. The Data tab has the counts.');
   const c1 = card('What we have', null, null, 'card wide'); const g = h('div', { class: 'grid' }, c1); main.append(g);
   c1.append(simpleTable([{ key: 0, label: 'Data' }, { key: 1, label: 'What it tells us' }, { key: 2, label: 'How far back' }, { key: 3, label: 'Have it?', render: r => h('span', { class: 'have' }, r[3]) }], [
     ['List of markets', 'Every market’s question, start and end dates, outcome, total amount traded, and tags', `All markets, from ${I.first_start}`, '✓ Yes'],
@@ -438,7 +422,7 @@ function pageCoveragePM(main) {
 
 function pageDataPM(main) {
   const I = S.inventory, N = S.samples, r0 = (S.reg || []).find(r => r.variant === 'all days' && r.sample === 'all');
-  pageHead(main, 'Data: counts and samples', 'How big each Polymarket dataset is, and how many markets each analysis uses.');
+  pageHead(main, 'Data: counts and samples', 'How big each Polymarket dataset is (all markets), and how many markets each analysis uses (sports and crypto left out).');
   const c1 = card('Datasets', null, null, 'card wide'); const g = h('div', { class: 'grid' }, c1); main.append(g);
   c1.append(simpleTable([{ key: 0, label: 'Dataset' }, { key: 1, label: 'n', num: true }, { key: 2, label: 'Breakdown' }, { key: 3, label: 'Dates' }, { key: 4, label: 'Source' }], [
     ['Markets', fi(I.markets), `${fi(I.markets_traded)} ever traded · ${fi(I.markets_resolved)} resolved yes/no · ${fi(I.markets_open)} open`, `${I.first_start} – ${I.last_end}`, 'Gamma API'],
@@ -450,7 +434,7 @@ function pageDataPM(main) {
   const ag = N.accuracy_group;
   const c2 = card('Samples used in each analysis', null, null, 'card wide'); g.append(c2);
   c2.append(simpleTable([{ key: 0, label: 'Tab' }, { key: 1, label: 'Analysis' }, { key: 2, label: 'Sample' }, { key: 3, label: 'Markets', num: true }, { key: 4, label: 'Observations', num: true }], [
-    ['Horizons', 'Volume by horizon', 'All markets', fi(N.horizon_markets), ''],
+    ['Horizons', 'Volume by horizon', 'All markets except sports and crypto', fi(N.horizon_markets), ''],
     ['Horizons', 'Trades by horizon', 'Markets analysed that traded', fi(N.trade_markets), fi(I.trades) + ' trades'],
     ['Accuracy', 'Brier and AUC', 'Resolved yes/no markets priced at every distance', `${fi(N.accuracy[90])} / ${fi(N.accuracy[180])} / ${fi(N.accuracy[365])}`, 'open ≥ 90 / 180 / 365 days'],
     ['Accuracy', 'By market type', 'The open-≥ 90-days sample', fi(N.accuracy[90]), Object.entries(ag).map(([k, v]) => `${k} ${fi(v)}`).join(' · ')],
@@ -464,7 +448,7 @@ function pageRewards(main) {
   const T = S.reward_totals, M = S.reward_months;
   pageHead(main, 'Kalshi’s reward programs', 'Kalshi pays traders to keep orders near the best price (liquidity rewards) or to trade (volume rewards), market by market.');
   main.append(h('div', { class: 'tiles' },
-    tile(usd(T.usd), 'posted in rewards', 'Sep 2025 – Sep 2026'),
+    tile(usd(T.usd), 'posted in rewards', 'all categories, Sep 2025 – Sep 2026'),
     tile(fi(T.markets), 'markets rewarded'),
     tile(fi(M.programs[M.programs.length - 1]), 'programs started in Sep 2026', `vs ${fi(M.programs[0])} in Sep 2025`),
     tile(usd(T.by_kind['Long-dated liquidity']), 'dedicated long-dated program', '29 Apr – ~11 Jul 2026')));
@@ -482,9 +466,9 @@ function pageRewards(main) {
   main.append(h('div', { class: 'grid', style: 'margin:16px 0' }, cd));
 
   const R = S.reward_coverage;
-  const c1 = card('Share of markets rewarded', 'By how far ahead the market was listed.');
+  const c1 = card('Share of markets rewarded', 'Markets other than sports and crypto, by how far ahead they were listed.');
   C.vbar(c1, R.map(r => SHORT[r.hz]), R.map(r => r.share_liquidity_reward), { fmtV: v => pct(v), H: 230 });
-  const c2 = card('Reward $ per 1,000 contracts traded', 'Long-horizon markets get far more subsidy per unit of trading.');
+  const c2 = card('Reward $ per 1,000 contracts traded', 'Reward dollars posted per 1,000 contracts traded, by how far ahead the market was listed.');
   C.vbar(c2, R.map(r => SHORT[r.hz]), R.map(r => r.reward_usd_per_1k_contracts), { fmtV: v => '$' + f2(v), H: 230 });
   main.append(grid(c1, c2));
 
@@ -513,7 +497,7 @@ function pageRewards(main) {
       h('li', {}, tex(String.raw`\alpha_m`), ': one constant per market (market fixed effect); ', tex(String.raw`\delta_d`), ': one constant per calendar day (day fixed effect); ', tex(String.raw`\varepsilon_{m,d}`), ': error'),
       h('li', {}, 'Columns: long-dated reward = ', tex(String.raw`\hat\beta_1`), ', other liquidity reward = ', tex(String.raw`\hat\beta_2`), ', typical day = average of ', tex(String.raw`\text{Outcome}_{m,d}`)),
       h('li', {}, 'OLS, SEs clustered by series; bold = |t| > 2')),
-    h('p', { class: 'expl' }, 'Example: on long-dated reward days the median spread is 7.2¢ lower than on the same market’s other days (typical: 10.3¢). Kalshi chooses where rewards run, so these are associations, not causal effects.'));
+    (() => { const e = S.reward_effects.find(r => r.reward === 'rw_long_dated' && r.outcome === 'spread_med'); return h('p', { class: 'expl' }, `Example: on long-dated reward days the median spread is ${(Math.abs(e.coef) * 100).toFixed(1)}¢ ${e.coef < 0 ? 'lower' : 'higher'} than on the same market’s other days (typical: ${(e.mean_y * 100).toFixed(1)}¢). Kalshi chooses where rewards run, so these are associations, not causal effects.`); })());
   main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, how));
 
   const ES = S.event_study;
@@ -525,7 +509,7 @@ function pageRewards(main) {
 // ------------------------------------------------------------------ What we have
 function pageCoverage(main) {
   if (isPM()) return pageCoveragePM(main);
-  pageHead(main, 'What data we have, in plain terms', 'A quick guide to what the Kalshi data can and can’t show. The Data tab has the technical details.');
+  pageHead(main, 'What data we have, in plain terms', 'A quick guide to what the Kalshi data can and can’t show. The analyses leave out sports and crypto markets. The Data tab has the technical details.');
   const c1 = card('What we have', null, null, 'card wide'); const g = h('div', { class: 'grid' }, c1); main.append(g);
   c1.append(simpleTable([{ key: 0, label: 'Data' }, { key: 1, label: 'What it tells us' }, { key: 2, label: 'How far back' }, { key: 3, label: 'Have it?', render: r => h('span', { class: 'have' }, r[3]) }], [
     ['List of markets', 'Each market’s question, open and close dates, outcome, and total amount traded over its life', 'Markets closing in 2026 or later (plus a few older ones)', '✓ Yes'],
@@ -549,7 +533,7 @@ function pageCoverage(main) {
 function pageData(main) {
   if (isPM()) return pageDataPM(main);
   const I = S.inventory, N = S.samples;
-  pageHead(main, 'Data: counts and samples', 'How big each dataset is, and how many markets each analysis uses. The What we have tab explains the data in plain terms.');
+  pageHead(main, 'Data: counts and samples', 'How big each dataset is (all markets), and how many markets each analysis uses (sports and crypto left out). The What we have tab explains the data in plain terms.');
   const c1 = card('Datasets', null, null, 'card wide'); const g = h('div', { class: 'grid' }, c1); main.append(g);
   const TIP = {
     'Markets (non-combo)': ['One yes/no contract you can trade', 'e.g. “Will Q2 2026 GDP grow more than 4.0%?”', 'Each has open and close dates, an outcome, and total volume'],
@@ -576,7 +560,7 @@ function pageData(main) {
   const ag = N.accuracy_group;
   const c2 = card('Samples used in each analysis', null, null, 'card wide'); g.append(c2);
   c2.append(simpleTable([{ key: 0, label: 'Tab' }, { key: 1, label: 'Analysis' }, { key: 2, label: 'Sample' }, { key: 3, label: 'Markets', num: true }, { key: 4, label: 'Observations', num: true }], [
-    ['Horizons', 'Volume by listing horizon', 'All non-combo markets', fi(N.horizon_markets), ''],
+    ['Horizons', 'Volume by listing horizon', 'Non-combo markets except sports and crypto', fi(N.horizon_markets), ''],
     ['Horizons', 'Trade tape by horizon', 'Non-combo markets that traded 15 Jul – 21 Sep', fi(N.trade_markets), fi(I.trades) + ' trades (all markets)'],
     ['Accuracy', 'Brier and AUC', 'Settled yes/no markets priced at every distance', `${fi(N.accuracy[90])} / ${fi(N.accuracy[180])} / ${fi(N.accuracy[365])}`, 'lived ≥ 90 / 180 / 365 days'],
     ['Accuracy', 'AUC by group', 'The lived-≥ 90-days sample', fi(N.accuracy[90]), `Econ/Fin ${ag['Econ/Fin']} · Politics ${ag.Politics} · Sports ${ag.Sports} · Tech ${ag['Tech/AI/Co']} · Other ${ag.Other}`],
@@ -678,7 +662,7 @@ function pageNotes(main) {
       'Multi-outcome events: long-shot candidates trade little and score a low Brier easily, which pushes β up. Contract fixed effects remove this; specs (1) and (2) do not.',
       'Bad controls: do not control for the price, or anything volume itself changes. That removes part of the effect being measured.',
       'Selection: only resolved markets are used, and “expired in year X” picks markets by end date, so each subset has a different mix.',
-      'Large samples: with millions of rows, tiny effects come out significant. Judge size against the average Brier, and remember there are 18 regressions (3 specs × 6 subsets), so a few significant results can appear by chance.',
+      'Large samples: with millions of rows, tiny effects come out significant. Judge size against the average Brier, and remember there are many regressions (five specifications, several samples and categories), so a few significant results can appear by chance.',
       'Kalshi vs Polymarket: volume levels differ across platforms, so compare signs and relative sizes rather than raw coefficients.'));
 }
 

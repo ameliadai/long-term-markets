@@ -79,6 +79,10 @@ The site is static and reads only `website/data/site.json`, so any static host c
 
 ## Caveats
 
+- Sports and crypto markets are left out of every analysis: they are mostly very short games and
+  price brackets. Set `KL_ALL_CATEGORIES=1` to keep them (see `EXCLUDE` in
+  `kalshi/scripts/common.py` and `polymarket/scripts/pm_common.py`).
+
 - Kalshi's archive covers markets closing in 2026 or later; individual trades only for
   15 Jul – 21 Sep 2026. No order-book history.
 - Polymarket's trade records start on 30 Sep 2023, so only markets that started on or after that

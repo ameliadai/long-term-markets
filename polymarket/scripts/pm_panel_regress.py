@@ -16,7 +16,8 @@ The CLOB price series has no bid/ask, so Kalshi's "two-sided quotes only" rule c
 Also writes the category mix (results/pm_category_mix.csv) and specs (1), (3), (4) run separately
 for each category (results/pm_by_category.csv), for all markets and markets open > 180 days.
 Samples: all; duration > 180 days; expired in 2023, 2024, 2025, 2026.
-Only markets that started on or after TRADES_FROM (the first day the Data API has trades) are used.
+Only markets that started on or after TRADES_FROM (the first day the Data API has trades) are used,
+and the EXCLUDE categories (sports and crypto by default) are left out.
 Variants: "all days", and "drop last day" (each market's last day with a price is removed;
 on that day the price usually already reflects the outcome).
 """
@@ -26,7 +27,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from pm_common import DATA, ROOT, TRADES_FROM
+from pm_common import DATA, EXCLUDE, ROOT, TRADES_FROM
 
 RES = os.environ.get("PM_RESULTS", os.path.join(ROOT, "results"))
 
@@ -66,6 +67,7 @@ def main():
     pr = pr.sort_values(["market_id", "t"]).drop_duplicates(["market_id", "day"], keep="last")
     td = read_parts("trades_daily")
     sel = sel[sel.start >= pd.Timestamp(TRADES_FROM, tz="UTC")]      # cumulative volume is complete only for these
+    sel = sel[~sel.category_coarse.isin(EXCLUDE)]
     panel = pr.merge(sel, on="market_id", how="inner")
     if len(td):
         td["day"] = pd.to_datetime(td.day, utc=True).astype("datetime64[ns, UTC]")

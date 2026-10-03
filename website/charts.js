@@ -129,5 +129,22 @@ const C = (() => {
     for (let i = 0; i < n; i++) { const hit = el('rect', { x: i * bw, y: 0, width: bw, height: h, fill: 'transparent' }, g); hit.addEventListener('pointermove', e => showTip(e, tipHtml(labels[i], series.map((s, si) => ({ value: fmtV(s.values[i]), label: s.name, color: s.color || SERIES[si % 8] }))))); hit.addEventListener('pointerleave', hideTip); }
     if (series.length > 1) legend(container, series.map(s => s.name), 'line', series.map(s => s.color));
   }
-  return { binLine, strip, xyline, hbar, vbar, line, scatter, calibration, timeline, legend, fmt, fmtInt, SERIES, showTip, hideTip, tipHtml };
+  // Grouped, stacked bars: groups [{name, color, parts: [{name, values, opacity?}]}]; one bar per group
+  // at each label, each bar stacked from its parts (the first part at the bottom)
+  function vbarGS(container, labels, groups, { W = 460, H = 220, fmtV = fmtInt, partNames = [] } = {}) {
+    const m = { l: 44, r: 8, t: 8, b: 24 }; const { g, w, h } = frame(container, W, H, m); const n = labels.length, bwAll = w / n, nG = groups.length;
+    const tot = (gr, i) => gr.parts.reduce((a, p) => a + (p.values[i] || 0), 0);
+    let max = 0; for (let i = 0; i < n; i++) groups.forEach(gr => { max = Math.max(max, tot(gr, i)); }); if (!max) max = 1;
+    const tk = ticks(0, max, 4); const top = Math.max(max, tk[tk.length - 1] || 0); const y = v => h - v / top * h; yAxis(g, w, h, y, tk, fmtV);
+    const gap = Math.max(2, bwAll * 0.2), bw = (bwAll - gap) / nG;
+    for (let i = 0; i < n; i++) {
+      groups.forEach((gr, k) => { let acc = 0; gr.parts.forEach(p => { const v = p.values[i] || 0; if (v <= 0) return; el('rect', { x: i * bwAll + gap / 2 + k * bw, y: y(acc + v), width: Math.max(bw - 1, 1), height: Math.max(0, y(acc) - y(acc + v)), fill: gr.color, 'fill-opacity': p.opacity ?? 1, rx: 2 }, g); acc += v; }); });
+      const hit = el('rect', { x: i * bwAll, y: 0, width: bwAll, height: h, fill: 'transparent' }, g);
+      hit.addEventListener('pointermove', e => showTip(e, tipHtml(labels[i], groups.flatMap(gr => [{ value: fmtV(tot(gr, i)), label: gr.name, color: gr.color }, ...gr.parts.filter(p => (p.values[i] || 0) > 0 && gr.parts.length > 1).map(p => ({ value: fmtV(p.values[i]), label: '  ' + p.name }))]))));
+      hit.addEventListener('pointerleave', hideTip);
+    }
+    const every = Math.ceil(n / 12); labels.forEach((l, i) => { if (i % every) return; txt(g, i * bwAll + bwAll / 2, h + 14, l, { 'text-anchor': 'middle' }); });
+    legend(container, groups.map(gr => gr.name), 'rect', groups.map(gr => gr.color));
+  }
+  return { binLine, strip, xyline, hbar, vbar, vbarGS, line, scatter, calibration, timeline, legend, fmt, fmtInt, SERIES, showTip, hideTip, tipHtml };
 })();

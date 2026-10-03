@@ -20,14 +20,14 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from common import D, R
+from common import D, R, keep
 
 LOCK = 0.02
 
 m = pd.read_parquet(f"{D}/markets.parquet", columns=[
     "ticker", "event_ticker", "status", "result", "close_time", "expected_expiration_time", "settlement_ts",
     "can_close_early", "horizon_days", "category"])
-m = m[(m.status == "finalized") & m.result.isin(["yes", "no"])].copy()
+m = keep(m[(m.status == "finalized") & m.result.isin(["yes", "no"])]).copy()
 m["y"] = (m.result == "yes").astype(np.float64)
 m["settle_lag_h"] = (m.settlement_ts - m.close_time).dt.total_seconds() / 3600
 m["close_vs_exp_h"] = (m.close_time - m.expected_expiration_time).dt.total_seconds() / 3600

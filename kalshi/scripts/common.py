@@ -9,6 +9,9 @@ KALSHI = Path(__file__).resolve().parent.parent          # kalshi/
 # (polymarket/kshape, built by polymarket/scripts/pm_kshape.py)
 D = os.environ.get("KL_DATA", str(KALSHI / "data"))
 R = os.environ.get("KL_RESULTS", str(KALSHI / "results"))
+# Sports and crypto markets are left out of the analyses by default (they are mostly short games
+# and price brackets); set KL_ALL_CATEGORIES=1 to keep them.
+EXCLUDE = [] if os.environ.get("KL_ALL_CATEGORIES") else ["Sports", "Crypto"]
 HZ_BINS = [-1, 1, 7, 30, 90, 180, 365, 730, 1e6]
 HZ_LABELS = ["<1d", "1-7d", "7-30d", "1-3m", "3-6m", "6-12m", "1-2y", ">2y"]
 MACRO = ["Economics", "Financials", "Economy & Finance"]          # last: Polymarket's coarse category
@@ -27,8 +30,13 @@ def group_of(cat):
     return "Other"
 
 
+def keep(m):
+    """Drop the excluded categories (see EXCLUDE)."""
+    return m[~m.category.isin(EXCLUDE)]
+
+
 def markets(min_horizon=None):
-    m = pd.read_parquet(f"{D}/markets.parquet")
+    m = keep(pd.read_parquet(f"{D}/markets.parquet"))
     m = m[m.open_time.notna() & m.close_time.notna()]
     if min_horizon is not None:
         m = m[m.horizon_days >= min_horizon]

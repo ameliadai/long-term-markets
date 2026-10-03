@@ -8,7 +8,7 @@ t = t.groupby(["ticker", "day"], as_index=False)[
     ["n", "contracts", "yes_notional", "n_taker_yes", "contracts_taker_yes", "n_block",
      "n_lt10", "n_10_99", "n_100_999", "n_ge1000"]].sum()
 m = markets()[["ticker", "hz", "group", "horizon_days", "category"]]
-t = t.merge(m, on="ticker", how="left")
+t = t.merge(m, on="ticker", how="inner")      # only markets kept by common.markets()
 t["hz"] = t.hz.cat.add_categories(["combo/unknown"]).fillna("combo/unknown")
 t["group"] = t.group.fillna("combo/unknown")
 # dollars that changed hands: yes side pays price, no side pays 1 - price
