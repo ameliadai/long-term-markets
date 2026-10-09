@@ -36,7 +36,8 @@ const C = (() => {
   // Line chart: xs (numbers or date strings), series [{name, values}] ; crosshair tooltip
   function line(container, xs, series, { W = 460, H = 220, fmtV = v => fmt(v, 3), fmtX = x => String(x), ylabel, ymin, ymax, band } = {}) {
     const m = { l: 48, r: 12, t: 8, b: 24 }; const { svg, g, w, h } = frame(container, W, H, m); const n = xs.length;
-    let lo = ymin ?? Infinity, hi = ymax ?? -Infinity; if (ymin == null || ymax == null) series.forEach(s => s.values.forEach(v => { if (v == null) return; if (ymin == null && v < lo) lo = v; if (ymax == null && v > hi) hi = v; })); if (lo === Infinity) { lo = 0; hi = 1; } if (lo === hi) hi = lo + 1;
+    let lo = ymin ?? Infinity, hi = ymax ?? -Infinity; if (ymin == null || ymax == null) series.forEach(s => s.values.forEach(v => { if (v == null) return; if (ymin == null && v < lo) lo = v; if (ymax == null && v > hi) hi = v; })); if (band) [...band.lo, ...band.hi].forEach(v => { if (v == null) return; if (ymin == null && v < lo) lo = v; if (ymax == null && v > hi) hi = v; });
+    if (lo === Infinity) { lo = 0; hi = 1; } if (lo === hi) hi = lo + 1;
     const tk = ticks(lo, hi, 4); lo = Math.min(lo, tk[0]); hi = Math.max(hi, tk[tk.length - 1]); const y = v => h - (v - lo) / (hi - lo) * h; const x = i => n > 1 ? i / (n - 1) * w : w / 2; yAxis(g, w, h, y, tk, fmtV);
     if (band) { const d = 'M' + band.lo.map((v, i) => `${x(i)},${y(v)}`).join('L') + 'L' + band.hi.map((v, i) => `${x(n - 1 - i)},${y(band.hi[n - 1 - i])}`).join('L') + 'Z'; el('path', { d, fill: band.color || SERIES[0], opacity: .12 }, g); }
     series.forEach((s, si) => { let d = '', pen = false; s.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ',' + y(v); pen = true; }); el('path', { d, fill: 'none', stroke: s.color || SERIES[si % 8], 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-dasharray': s.dash || 'none' }, g); });

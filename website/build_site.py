@@ -129,16 +129,40 @@ ip["month"] = ip.start.dt.strftime("%Y-%m")
 mo = ip.pivot_table(index="month", columns="kind", values="usd", aggfunc="sum", fill_value=0)
 S["reward_months"] = {"months": list(mo.index), "series": {k: [round(v) for v in mo[k]] for k in mo.columns},
                       "programs": ip.groupby("month").size().reindex(mo.index).tolist()}
-S["reward_totals"] = {"usd": round(ip.usd.sum()), "programs": len(ip), "paid_share": float(ip.paid_out.mean()),
-                      "markets": int(ip.market_ticker.nunique()),
-                      "by_kind": {k: round(v) for k, v in ip.groupby("kind").usd.sum().items()},
+S["reward_totals"] = {"usd": round(ip.usd.sum()), "programs": len(ip), "markets": int(ip.market_ticker.nunique()),
                       "first": ip.start.min().date().isoformat(), "last": ip.start.max().date().isoformat()}
 cov = csv("04_reward_coverage_by_horizon.csv").set_index("hz").loc[HZ_ORDER].reset_index()
 cov["label"] = cov.hz.map(HZ_LABEL)
 S["reward_coverage"] = rec(cov)
 S["reward_effects"] = rec(csv("04_reward_effects_twfe.csv"))
 S["info_effects"] = rec(csv("05_info_vs_activity_twfe.csv"))
-S["event_study"] = rec(csv("04_long_dated_event_study.csv"))
+S["fresh"] = rec(csv("09_reward_info_fresh.csv"))
+S["program_kinds"] = rec(csv("14_program_kinds.csv"))
+S["reward_cov_cat"] = rec(csv("14_reward_coverage_by_category.csv"))
+ES_FILE = "13_reward_event_study_price_ffill.csv"     # main version: same-series controls matched on price
+S["reward_es"] = rec(csv(ES_FILE)) if (RES / ES_FILE).exists() else []
+meta_f = RES / ES_FILE.replace(".csv", "_sample.json")
+S["reward_es_meta"] = json.loads(meta_f.read_text()) if meta_f.exists() else {}
+ex_f = RES / "13_example.json"
+S["reward_es_example"] = json.loads(ex_f.read_text()) if ex_f.exists() else None
+# the post-period effect from every version of the comparison (see kalshi/README.md), for the robustness table
+versions = []
+for tag in ["price_ffill", "random", "series_matched", "brier_matched", "event_price", "event_matched", "mid", "pre56",
+            "placebo", "uncertain", "placebo_uncertain"]:
+    f = RES / f"13_reward_event_study_{tag}.csv"
+    if f.exists():
+        d = pd.read_csv(f)
+        d = d[(d["sample"] == "all") & d.term.isin(["post", "post_ex_w-1"])]
+        versions.append(d.assign(version=tag))
+S["reward_es_versions"] = rec(pd.concat(versions)) if versions else []
+# week-by-week Brier effect for markets that start out uncertain, real rewards vs fake reward dates
+unc = []
+for tag in ["uncertain", "placebo_uncertain"]:
+    f = RES / f"13_reward_event_study_{tag}.csv"
+    if f.exists():
+        d = pd.read_csv(f)
+        unc.append(d[(d["sample"] == "all") & (d.outcome == "brier")].assign(version=tag))
+S["reward_es_uncertain"] = rec(pd.concat(unc)) if unc else []
 
 # ---- open markets now -----------------------------------------------------------------------
 om = pd.read_parquet(DATA / "open_markets_enriched.parquet")
@@ -173,7 +197,6 @@ samp = {k: json.loads((RES / f"{k}_sample.json").read_text()) for k in ("04", "0
 S["samples"].update({
     "panel": samp["04"], "settled_panel": samp["05"],
     "coverage_markets": int(cov.markets.sum()),
-    "event_study_markets": int(csv("04_long_dated_event_study.csv").markets.max()),
 })
 
 # ---- Polymarket -----------------------------------------------------------------------------

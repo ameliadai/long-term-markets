@@ -11,10 +11,11 @@ Also: realized return from buying favourites/longshots k days out, a rough
 check on whether long-dated prices carry a capital-lockup discount.
 """
 import numpy as np, pandas as pd
-from common import D, R, markets
+from common import R, markets
 from a04_twfe import twfe
 
 p = pd.read_parquet(f"{R}/04_panel.parquet")
+p = p[p.has_row]          # price moves are measured between observed days
 m = markets()
 res_ = m.set_index("ticker").loc[:, ["status", "result"]]
 p = p.join(res_, on="ticker")

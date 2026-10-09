@@ -13,3 +13,11 @@ __pycache__/
 *.pyc
 .DS_Store
 .netlify/
+# slides and other shared documents
+*.pptx
+*.pdf
+# working notes (not for the public repo)
+notes/
+# per-version stack lists from a13 (only the main version's is used, by a13_example.py)
+kalshi/results/13_reward_event_study_*_stacks.csv
+!kalshi/results/13_reward_event_study_price_ffill_stacks.csv

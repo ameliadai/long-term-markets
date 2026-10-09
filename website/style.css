@@ -9,7 +9,7 @@ header h1{font-size:16px;margin:0;font-weight:600}header nav a{padding:6px 10px;
 main{padding:20px 24px;max-width:1500px;margin:0 auto}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}.tile .v{font-size:24px;font-weight:600;letter-spacing:-.01em}.tile .l{color:var(--text2);font-size:12px}.tile .s{color:var(--muted);font-size:11px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:16px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;min-width:0}.card.wide{grid-column:1/-1}
 .card h3{margin:0 0 2px;font-size:14px;font-weight:600}.card .sub{color:var(--text2);font-size:12px;margin-bottom:8px}
 svg{display:block;width:100%;height:auto;overflow:visible}svg text{fill:var(--text2);font-size:11px}svg .grid line{stroke:var(--grid)}svg .axis line,svg .axis path{stroke:var(--border)}
@@ -19,7 +19,7 @@ svg{display:block;width:100%;height:auto;overflow:visible}svg text{fill:var(--te
 .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}.filters input,.filters select{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font:inherit}.filters input[type=text]{min-width:260px}.filters label{color:var(--text2);font-size:12px}
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{color:var(--text2);font-weight:500;cursor:pointer;user-select:none;white-space:nowrap}th.sorted::after{content:" ▾"}th.sorted.asc::after{content:" ▴"}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}tr:hover td{background:var(--hover)}
-.tablewrap{overflow-x:auto}.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--hover);color:var(--text2);white-space:nowrap}
+.tablewrap{overflow-x:auto;position:relative}.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;background:var(--hover);color:var(--text2);white-space:nowrap}
 .pager{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--text2);font-size:12px}button{padding:5px 10px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:6px;cursor:pointer;font:inherit}button:disabled{opacity:.4}
 .muted{color:var(--muted)}.small{font-size:12px}pre{white-space:pre-wrap;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--bg);padding:8px 10px;border-radius:6px;margin:0}
 .rat{white-space:pre-wrap;font-size:13px;line-height:1.5}details{margin:4px 0}summary{cursor:pointer;color:var(--text2)}

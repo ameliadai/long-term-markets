@@ -37,7 +37,7 @@ books, reward programs). See [`kalshi/README.md`](kalshi/README.md) for the data
 
 ```bash
 cd kalshi/scripts
-python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a11, a12
+python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a11, a12, a13 (+ a13_example), a14
 ```
 
 | Script | What it does |
@@ -53,6 +53,9 @@ python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a1
 | `a10_brier_volume_regressions.py` | daily Brier score on cumulative past volume, five specifications |
 | `a11_resolution_timing.py` | late resolution, and markets whose last days already show the answer |
 | `a12_regression_checks.py` | robustness checks for a10 (time bins, stale prices, weights, reward instrument) |
+| `a13_reward_event_study.py` | before/after a market's first liquidity reward vs never-rewarded markets in the same series (stacked event study; options for controls, matching, placebo) |
+| `a13_example.py` | one worked example for a13: a typical rewarded market, its controls, and their before/after numbers |
+| `a14_reward_programs.py` | the five kinds of reward program (size, timing), and reward coverage by category |
 
 ## Polymarket
 
@@ -83,8 +86,8 @@ The site is static and reads only `website/data/site.json`, so any static host c
   price brackets. Set `KL_ALL_CATEGORIES=1` to keep them (see `EXCLUDE` in
   `kalshi/scripts/common.py` and `polymarket/scripts/pm_common.py`).
 
-- Kalshi's archive covers markets closing in 2026 or later; individual trades only for
-  15 Jul – 21 Sep 2026. No order-book history.
+- Kalshi's archive covers markets still open on 14 Jul 2026 or later (plus about 4,000 that closed
+  earlier in 2026); individual trades only for 15 Jul – 21 Sep 2026. No order-book history.
 - Polymarket's trade records start on 30 Sep 2023, so only markets that started on or after that
   date are analysed. Daily prices are taken at 00:00 UTC and have no bid/ask.
 - All results are associations, not causal effects.

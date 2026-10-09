@@ -1,9 +1,12 @@
 """Incentive programs: who gets them (by horizon) and what they change.
 
-1. Coverage and dollars by listing horizon (markets closing in 2026 or later).
+1. Coverage and dollars by listing horizon (markets closing in 2026 or later in our market list,
+   which in practice means almost only markets still open on 14 Jul 2026 or later).
 2. Market-day panel for long-lived markets (Mar 15 - Aug 31 2026): does a
    market's quoting/trading change on days a liquidity reward is active?
-   Two-way fixed effects (market, calendar day), SEs clustered by series.
+   Every calendar day a market was open (final two days dropped); days without a candle row
+   count as no trade. Two-way fixed effects (market, calendar day), SEs clustered by series.
+   The panel (04_panel.parquet) keeps a has_row flag; a05 and a09 use only days with a row.
 """
 import numpy as np
 import pandas as pd
@@ -39,7 +42,7 @@ cov = pd.DataFrame({
 })
 cov["reward_usd_per_1k_contracts"] = 1000 * cov.reward_usd / cov.volume_contracts
 cov["reward_usd_per_rewarded_market"] = g.apply(lambda d: d.rw_usd[d.rw_usd > 0].mean())
-print("== reward coverage by listing horizon (markets closing 2026+) ==")
+print("== reward coverage by listing horizon ==")
 print(cov.round(3).to_string())
 cov.to_csv(f"{R}/04_reward_coverage_by_horizon.csv")
 
@@ -57,8 +60,18 @@ pm = m[(m.horizon_days >= 60) & (m.open_time < END) & (m.close_time > START + pd
        & (m.volume > 0)]
 c = candles_for(pm.ticker)
 c = c[(c.day >= START) & (c.day <= END)]
+# every calendar day each market was open in the window, except its final two days; days without a
+# candle row had no trade (volume 0), and their quotes are unknown
+first = pm.open_time.dt.floor("D").clip(lower=START)
+last = (pm.close_time.dt.floor("D") - pd.Timedelta(days=2)).clip(upper=END)
+ok = (last >= first).to_numpy()
+n = ((last - first).dt.days + 1).to_numpy()[ok]
+cal = pd.DataFrame({"ticker": np.repeat(pm.ticker.to_numpy()[ok], n)})
+cal["day"] = pd.DatetimeIndex(first[ok]).repeat(n) + pd.to_timedelta(np.concatenate([np.arange(k) for k in n]), unit="D")
+c = cal.merge(c, on=["ticker", "day"], how="left", indicator=True)
+c["has_row"] = c.pop("_merge") == "both"
+c["volume"] = c.volume.fillna(0)
 c = c.merge(pm[["ticker", "series_ticker", "close_time", "group"]], on="ticker")
-c = c[c.day < c.close_time.dt.floor("D") - pd.Timedelta(days=1)]  # drop final days
 
 for kind, sub in ip[ip.market_ticker.isin(set(pm.ticker)) & (ip.incentive_type == "liquidity")].groupby("kind"):
     s = sub[["market_ticker", "start_date", "end_date"]].copy().reset_index(drop=True)
@@ -116,13 +129,4 @@ print("\n== within-market effect of an active liquidity reward (market + day FE)
 print(res.round(4).to_string())
 res.to_csv(f"{R}/04_reward_effects_twfe.csv", index=False)
 
-first = c[c.rw_long_dated > 0].groupby("ticker").day.min().rename("t0")
-e = c.join(first, on="ticker", how="inner")
-e["week"] = ((e.day - e.t0).dt.days // 7).clip(-6, 14)
-es = e.groupby("week").agg(markets=("ticker", "nunique"), two_sided=("two_sided_share", "mean"),
-                           spread=("spread_med", "median"), traded=("traded", "mean"),
-                           ld_active=("rw_long_dated", "mean"), other_active=("rw_liquidity", "mean"))
-print("\n== weeks relative to first long-dated reward day (treated markets) ==")
-print(es.round(3).to_string())
-es.to_csv(f"{R}/04_long_dated_event_study.csv")
 c.drop(columns=list(dtc_d.columns)).to_parquet(f"{R}/04_panel.parquet", index=False)

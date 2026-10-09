@@ -1,0 +1,31 @@
+{
+ "reward_usd_settled": {
+  "markets": 251,
+  "mean": 192.07171314741035,
+  "median": 100.0
+ },
+ "all": {
+  "stacks": 1236,
+  "rows": 844338
+ },
+ "> 180 days left": {
+  "stacks": 953,
+  "rows": 689886
+ },
+ "long-dated program": {
+  "stacks": 495,
+  "rows": 415785
+ },
+ "treated_candidates": 1627,
+ "reward_usd_mean": 182.89239482200648,
+ "reward_usd_median": 150.0,
+ "pre": 56,
+ "post": 56,
+ "min_history": 14,
+ "n_ctrl": 10,
+ "limit": 0,
+ "controls": "series",
+ "match": "price",
+ "price": "ffill",
+ "placebo": false
+}

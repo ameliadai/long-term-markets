@@ -1,0 +1,186 @@
+{
+ "treated": {
+  "ticker": "KXGOVFLNOMR-26-JFIS",
+  "title": "Will James Fishback be the Republican nominee for Governor in Florida?",
+  "sub": "James Fishback",
+  "event": "Florida Republican Governor nominee?",
+  "open": "2025-11-11",
+  "close": "2026-08-19",
+  "result": "no",
+  "series": "Florida Governor Republican nominee",
+  "category": "Elections",
+  "t0": "2026-05-10",
+  "reward_usd": 70.0
+ },
+ "controls": [
+  {
+   "ticker": "KXGOVFLNOMR-26-CBUR",
+   "title": "Will Charles Burkett be the Republican nominee for Governor in Florida?",
+   "sub": "Charles Burkett",
+   "event": "Florida Republican Governor nominee?",
+   "open": "2026-02-09",
+   "close": "2026-08-19",
+   "result": "no"
+  },
+  {
+   "ticker": "KXGOVFLNOMR-26-JCOL",
+   "title": "Will Jay Collins be the Republican nominee for Governor in Florida?",
+   "sub": "Jay Collins",
+   "event": "Florida Republican Governor nominee?",
+   "open": "2025-09-19",
+   "close": "2026-08-19",
+   "result": "no"
+  },
+  {
+   "ticker": "KXGOVFLNOMR-26-JP",
+   "title": "Will Jimmy Patronis be the Republican nominee for Governor in Florida?",
+   "sub": "Jimmy Patronis",
+   "event": "Florida Republican Governor nominee?",
+   "open": "2025-01-16",
+   "close": "2026-08-19",
+   "result": "no"
+  },
+  {
+   "ticker": "KXGOVFLNOMR-26-MG",
+   "title": "Will Matt Gaetz be the Republican nominee for Governor in Florida?",
+   "sub": "Matt Gaetz",
+   "event": "Florida Republican Governor nominee?",
+   "open": "2025-01-16",
+   "close": "2026-08-19",
+   "result": "no"
+  },
+  {
+   "ticker": "KXGOVFLNOMR-26-WS",
+   "title": "Will Wilton Simpson be the Republican nominee for Governor in Florida?",
+   "sub": "Wilton Simpson",
+   "event": "Florida Republican Governor nominee?",
+   "open": "2025-01-16",
+   "close": "2026-08-19",
+   "result": "no"
+  }
+ ],
+ "candidates": 54,
+ "eligible": 26,
+ "median_change": {
+  "spread": -0.29180757372920685,
+  "brier": -0.0026408616071428607
+ },
+ "mean_change": {
+  "spread": -1.1159716483643953,
+  "brier": -0.02673799646485677
+ },
+ "change": {
+  "spread": -0.34341025641025674,
+  "brier": -0.0017571696428571437
+ },
+ "pre": 28,
+ "post": 56,
+ "spread": {
+  "weeks": [
+   -4,
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "rewarded": [
+   0.9571428571428575,
+   0.964285714285715,
+   0.7928571428571434,
+   0.5142857142857146,
+   0.32142857142857156,
+   0.5571428571428573,
+   0.3214285714285713,
+   0.3714285714285714,
+   0.6285714285714288,
+   0.5142857142857146,
+   0.3785714285714287,
+   0.35714285714285715
+  ],
+  "controls": [
+   1.0670476190476192,
+   0.3004761904761905,
+   0.34642857142857153,
+   0.7714285714285714,
+   0.5785714285714286,
+   0.5857142857142857,
+   0.8499999999999999,
+   2.6999999999999997,
+   0.9571428571428573,
+   0.4428571428571429,
+   0.5857142857142856,
+   0.5928571428571427
+  ],
+  "before_after": {
+   "rewarded": [
+    0.8071428571428576,
+    0.4312500000000001
+   ],
+   "controls": [
+    0.5985540293040293,
+    0.5660714285714286
+   ]
+  }
+ },
+ "brier": {
+  "weeks": [
+   -4,
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "rewarded": [
+   0.007323928571428571,
+   0.008599785714285714,
+   0.008146821428571429,
+   0.008117357142857143,
+   0.009302214285714287,
+   0.008526214285714286,
+   0.008671857142857143,
+   0.007962535714285714,
+   0.0049098928571428575,
+   0.003775607142857143,
+   0.0026040357142857145,
+   0.0017640714285714289
+  ],
+  "controls": [
+   0.0006808857142857141,
+   0.0004700928571428571,
+   0.0004405928571428571,
+   0.0002953785714285714,
+   0.00016826428571428573,
+   0.0002698928571428571,
+   0.0001442357142857143,
+   0.0001491142857142857,
+   8.279285714285714e-05,
+   4.3e-05,
+   4.530714285714285e-05,
+   6.929285714285715e-05
+  ],
+  "before_after": {
+   "rewarded": [
+    0.008046973214285715,
+    0.005939553571428571
+   ],
+   "controls": [
+    0.0004717375,
+    0.00012148750000000002
+   ]
+  }
+ }
+}

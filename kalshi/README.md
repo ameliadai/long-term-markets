@@ -32,3 +32,28 @@ KIND=candles sbatch --array=1-47 --export=ALL slurm/extract.slurm
 KIND=trades  sbatch --array=1-14 --export=ALL slurm/extract.slurm
 sbatch slurm/build_tables.slurm   # after all three succeed
 ```
+
+Analysis scripts that need more memory than a login node (e.g. `a13_reward_event_study.py`) run
+through `slurm/analysis.slurm`; arguments for the script go in `ARGS`:
+
+```bash
+SCRIPT=a13_reward_event_study.py ARGS="--match price --price ffill --tag price_ffill" sbatch --export=ALL slurm/analysis.slurm
+```
+
+The website reads these a13 versions (tag: arguments):
+
+| Tag | Arguments | What changes from the main version |
+|---|---|---|
+| `price_ffill` | `--match price --price ffill` | main version |
+| `random` | `--match none --price ffill` | controls drawn at random |
+| `series_matched` | `--match volume --price ffill` | controls matched on trading volume |
+| `brier_matched` | `--match brier --price ffill` | controls matched on starting Brier score |
+| `event_price` | `--controls event --match price --price ffill` | controls from the same event only |
+| `event_matched` | `--controls event --match volume --price ffill` | same event, matched on volume |
+| `mid` | `--match price --price mid` | Brier only on days with two-sided quotes |
+| `pre56` | `--match price --price ffill --pre 56` | 8-week before-period |
+| `uncertain` | `--match price --price ffill --min-pre-brier 0.05` | only markets that start out uncertain |
+| `placebo_uncertain` | `... --placebo --min-pre-brier 0.05` | fake reward dates, uncertain markets |
+| `placebo` | `--match price --price ffill --placebo` | fake reward dates |
+
+Run `a13_example.py` after the main version.

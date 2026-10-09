@@ -104,6 +104,7 @@ print(FAV.pivot_table(index=["price", "threshold"], columns="k", values="events"
 # ------------------------------------------------------------------ 3. reward days, fresh prices only
 if os.path.exists(f"{R}/04_panel.parquet"):   # the reward panel exists only for Kalshi
     p = pd.read_parquet(f"{R}/04_panel.parquet")
+    p = p[p.has_row]
     p = p.merge(mk[["ticker", "status", "result"]], on="ticker")
     p = p[(p.status == "finalized") & p.result.isin(["yes", "no"])].copy()
     p["y"] = (p.result == "yes").astype(float)
