@@ -16,6 +16,29 @@
   "stacks": 495,
   "rows": 319515
  },
+ "started Oct 2025 - Mar 2026": {
+  "stacks": 421,
+  "rows": 257928
+ },
+ "started Apr - Jun 2026": {
+  "stacks": 507,
+  "rows": 328668
+ },
+ "started Jul - Sep 2026": {
+  "stacks": 308,
+  "rows": 77852
+ },
+ "full window": {
+  "stacks": 948,
+  "rows": 596623
+ },
+ "size_standard_rate": 21.43,
+ "size_markets": 948,
+ "size_groups": {
+  "below": 374,
+  "standard": 348,
+  "above": 226
+ },
  "treated_candidates": 1627,
  "reward_usd_mean": 182.89239482200648,
  "reward_usd_median": 150.0,
@@ -27,5 +50,6 @@
  "controls": "series",
  "match": "price",
  "price": "ffill",
- "placebo": false
+ "placebo": false,
+ "min_pre_brier": null
 }

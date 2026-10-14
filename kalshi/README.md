@@ -56,4 +56,11 @@ The website reads these a13 versions (tag: arguments):
 | `placebo_uncertain` | `... --placebo --min-pre-brier 0.05` | fake reward dates, uncertain markets |
 | `placebo` | `--match price --price ffill --placebo` | fake reward dates |
 
-Run `a13_example.py` after the main version.
+Run `a13_example.py` after the main version. The main version also compares reward sizes among markets
+observed for all 8 weeks (sample `full window`; reward size = the first reward's dollars per day, in groups below / at / above
+the most common amount, or as log dollars per day; regressions `size_groups` and `size_log`, holding program kind fixed).
+
+Synthetic DiD (`a15_reward_sdid.py`, results `15_reward_sdid[_TAG].csv`): run with no arguments, and
+with `--pre 56 --tag pre56`, `--placebo --tag placebo`, `--min-pre-brier 0.05 --tag uncertain`,
+`--placebo --min-pre-brier 0.05 --tag placebo_uncertain`. Each run also writes per-market effects
+(`15_reward_sdid[_TAG]_markets.csv`).

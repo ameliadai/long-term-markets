@@ -37,7 +37,7 @@ books, reward programs). See [`kalshi/README.md`](kalshi/README.md) for the data
 
 ```bash
 cd kalshi/scripts
-python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a11, a12, a13 (+ a13_example), a14
+python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a11, a12, a13 (+ a13_example), a14, a15
 ```
 
 | Script | What it does |
@@ -56,6 +56,7 @@ python a01_landscape.py        # then a02, a03, a04, a05, a06, a08, a09, a10, a1
 | `a13_reward_event_study.py` | before/after a market's first liquidity reward vs never-rewarded markets in the same series (stacked event study; options for controls, matching, placebo) |
 | `a13_example.py` | one worked example for a13: a typical rewarded market, its controls, and their before/after numbers |
 | `a14_reward_programs.py` | the five kinds of reward program (size, timing), and reward coverage by category |
+| `a15_reward_sdid.py` | synthetic difference-in-differences version of a13 (weighted controls from the whole series; also placebo and uncertain-market versions) |
 
 ## Polymarket
 

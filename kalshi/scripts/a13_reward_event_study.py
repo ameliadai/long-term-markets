@@ -24,7 +24,17 @@ Outcomes (all markets): spread (median bid-ask spread that day, cents; days with
 quotes), two_sided (share of the day's hourly snapshots with quotes on both sides), traded (any
 trade that day), log_volume. Settled yes/no markets only: brier ((price - outcome)^2), info_gain
 (how much the day's price move closed the gap to the outcome).
-Subsamples: all; markets with more than 180 days left at day 0; long-dated program only.
+Subsamples: all; markets with more than 180 days left at day 0; long-dated program only; by when
+the first reward started (Oct 2025 - Mar 2026, Apr - Jun 2026, Jul - Sep 2026); and,
+for reward size, "full window" (treated markets with all POST days observed: they neither close nor
+run past the data end before day POST-1). Reward size is the first reward's dollars per day (all
+liquidity programs starting at the first start time; a short program counts as at least an hour).
+Two size regressions on the full-window sample, with all coefficients saved as "<spec>:<variable>":
+  size_groups  y on post, post * below-standard, post * above-standard and post * long-dated, where
+               the standard amount is the most common daily reward (within 0.5%)
+  size_log     y on post, post * (log dollars per day - its mean) and post * long-dated
+and two robustness versions of size_log: size_log_trim (without the 5% smallest and largest
+rewards) and size_log_cat (adding post * category for the six largest categories).
 
 Options for the control group:
   --controls series   never-rewarded markets in the same series (default)
@@ -136,21 +146,13 @@ def daily_panel(m, tickers, price="mid"):
     return c[["ticker", "day", "has_row", "p", "p_dist"] + OUTCOMES]
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--controls", choices=["series", "event"], default="series")
-    ap.add_argument("--match", choices=["none", "volume", "price", "brier"], default="none")
-    ap.add_argument("--tag", default="")
-    ap.add_argument("--price", choices=["mid", "ffill"], default="mid")
-    ap.add_argument("--pre", type=int, default=PRE)
-    ap.add_argument("--placebo", action="store_true")
-    ap.add_argument("--min-pre-brier", type=float, default=None)
-    a = ap.parse_args()
-    pre = a.pre
-    weeks = list(range(-pre // 7, POST // 7))          # -4 .. 7 by default
-    rng = np.random.default_rng(0)
+def design(controls="series", price="mid", placebo=False, limit=0, rng=None):
+    """Treated markets, the daily panel, and each treated market's eligible controls.
 
+    Returns m (markets), ip (programs), t (treated markets with t0, sorted), c (daily panel),
+    by_key (eligible controls by series or event, with their first/last candle-row day) and key.
+    """
+    rng = rng if rng is not None else np.random.default_rng(0)
     m = keep(pd.read_parquet(f"{D}/markets.parquet", columns=[
         "ticker", "series_ticker", "event_ticker", "category", "status", "result", "open_time", "close_time"]))
     m = m[m.series_ticker.notna() & m.open_time.notna() & m.close_time.notna()]
@@ -158,8 +160,9 @@ def main():
     m["settled"] = (m.status == "finalized") & m.y.notna()
 
     ip = pd.read_parquet(f"{D}/incentive_programs.parquet",
-                         columns=["market_ticker", "incentive_type", "incentive_description", "start_date", "period_reward"])
+                         columns=["market_ticker", "incentive_type", "incentive_description", "start_date", "end_date", "period_reward"])
     ip["start"] = pd.to_datetime(ip.start_date, format="ISO8601", utc=True)
+    ip["end"] = pd.to_datetime(ip.end_date, format="ISO8601", utc=True)
     rewarded = set(ip.market_ticker)
     # each market's earliest program start; treated only if every program starting then is a liquidity reward
     ip["t_first"] = ip.groupby("market_ticker").start.transform("min")
@@ -175,7 +178,7 @@ def main():
           & (t.close_time - t.t0 >= pd.Timedelta(days=7))]
     ctrl = m[~m.ticker.isin(rewarded)]
     t = t[t.series_ticker.isin(set(ctrl.series_ticker))]
-    if a.placebo:
+    if placebo:
         fake = []
         t0s = t.groupby("series_ticker").t0.apply(list)
         for s_, cands in ctrl[ctrl.series_ticker.isin(t0s.index)].groupby("series_ticker"):
@@ -184,21 +187,40 @@ def main():
             fake.append(cands[ok])
         t = pd.concat(fake, ignore_index=True).assign(kind="placebo")
         t = t.sample(min(len(t), 2000), random_state=0)
-    if a.limit:
-        t = t.sample(min(a.limit, len(t)), random_state=0)
+    if limit:
+        t = t.sample(min(limit, len(t)), random_state=0)
     t = t.sort_values(["t0", "ticker"], ignore_index=True)
     log(f"treated candidates: {len(t):,} markets in {t.series_ticker.nunique():,} series; "
         f"never-rewarded markets in those series: {ctrl.series_ticker.isin(set(t.series_ticker)).sum():,}")
 
     ctrl = ctrl[ctrl.series_ticker.isin(set(t.series_ticker))]
-    c = daily_panel(m, set(t.ticker) | set(ctrl.ticker), a.price)
+    c = daily_panel(m, set(t.ticker) | set(ctrl.ticker), price)
     log(f"panel days: {len(c):,} market-days for {c.ticker.nunique():,} markets ({c.has_row.mean():.0%} with a candle row)")
 
     # controls need candle rows on both sides of day 0: first and last row day per control
     span = c[c.has_row].groupby("ticker").day.agg(["min", "max"])
     ctrl = ctrl.join(span, on="ticker", how="inner").sort_values("ticker")
-    key = "series_ticker" if a.controls == "series" else "event_ticker"
+    key = "series_ticker" if controls == "series" else "event_ticker"
     by_key = {s: d for s, d in ctrl.groupby(key)}
+    return m, ip, t, c, by_key, key
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--controls", choices=["series", "event"], default="series")
+    ap.add_argument("--match", choices=["none", "volume", "price", "brier"], default="none")
+    ap.add_argument("--tag", default="")
+    ap.add_argument("--price", choices=["mid", "ffill"], default="mid")
+    ap.add_argument("--pre", type=int, default=PRE)
+    ap.add_argument("--placebo", action="store_true")
+    ap.add_argument("--min-pre-brier", type=float, default=None)
+    a = ap.parse_args()
+    pre = a.pre
+    weeks = list(range(-pre // 7, POST // 7))          # -4 .. 7 by default
+    rng = np.random.default_rng(0)
+
+    m, ip, t, c, by_key, key = design(a.controls, a.price, a.placebo, a.limit, rng)
     if a.match != "none":
         col = {"volume": "log_volume", "price": "p_dist", "brier": "brier"}[a.match]
         series_of = {tk: d.set_index("day")[col] for tk, d in c.groupby("ticker")}
@@ -231,7 +253,9 @@ def main():
             pick = rng.choice(pick, N_CTRL, replace=False)
         stacks.append(pd.DataFrame({"sid": sid, "ticker": np.concatenate([[r.ticker], pick]),
                                     "treated": [1.0] + [0.0] * len(pick), "t0": r.t0, "series": r.series_ticker,
-                                    "kind": r.kind, "days_left": (r.close_time - r.t0).days}))
+                                    "kind": r.kind, "days_left": (r.close_time - r.t0).days,
+                                    "full_window": r.t0 + pd.Timedelta(days=POST - 1)
+                                    <= min(DATA_END, r.close_time.floor("D") - pd.Timedelta(days=1))}))
     st = pd.concat(stacks, ignore_index=True)
     # liquidity reward dollars from programs that start in the treated market's first POST days
     tr0 = st.loc[st.treated == 1, ["ticker", "t0"]].drop_duplicates("ticker")
@@ -254,6 +278,32 @@ def main():
     p["ref_week"] = p.treated * (p.week == REF)
     p["stack_mkt"] = p.sid.astype(str) + "|" + p.ticker
     p["stack_day"] = p.sid.astype(str) + "|" + p.day.dt.strftime("%Y-%m-%d")
+    # reward size: the first reward's dollars per day, fixed when the reward starts; compared only
+    # among treated markets observed for all POST days
+    first_lq = ip[(ip.start == ip.t_first) & (ip.incentive_type == "liquidity")]
+    days = ((first_lq.end - first_lq.start).dt.total_seconds() / 86400).clip(lower=1 / 24)
+    rate = (first_lq.period_reward / 1e4 / days).groupby(first_lq.market_ticker).sum()
+    tr_rows = st[st.treated == 1].set_index("sid")
+    size = tr_rows.ticker.map(rate)[tr_rows.full_window.astype(bool)].dropna()
+    by_size = not a.placebo and size.nunique() > 1
+    if by_size:
+        # the most common daily amount is Kalshi's standard reward; groups below / at / above it
+        std = float(size.round(2).mode().iloc[0])
+        below, above = size < std * 0.995, size > std * 1.005
+        p["full_window"] = p.sid.isin(size.index)
+        p["post_below"] = p.post * p.sid.map(below).astype(float)
+        p["post_above"] = p.post * p.sid.map(above).astype(float)
+        lr = np.log(size)
+        p["post_lograte"] = p.post * p.sid.map(lr - lr.mean())
+        p["post_ld"] = p.post * (p.kind == "long_dated")
+        # robustness: drop the 5% smallest and largest rewards; add post x category (six largest categories)
+        lo, hi = lr.quantile(0.05), lr.quantile(0.95)
+        p["mid_size"] = p.sid.isin(lr[(lr > lo) & (lr < hi)].index)
+        cats = st[st.treated == 1].set_index("sid").ticker.map(m.set_index("ticker").category).reindex(size.index)
+        catcols = []
+        for i, cn in enumerate(cats.value_counts().index[:6]):
+            p[f"post_cat{i}"] = p.post * (p.sid.map(cats) == cn).astype(float)
+            catcols.append(f"post_cat{i}")
     if a.min_pre_brier is not None:
         pb = p[(p.treated == 1) & (p.k <= -8)].groupby("sid").brier.mean()
         p = p[p.sid.isin(pb[pb >= a.min_pre_brier].index)]
@@ -261,6 +311,12 @@ def main():
     log(f"stacked panel: {len(p):,} rows")
 
     samples = {"all": p, "> 180 days left": p[p.days_left > 180], "long-dated program": p[p.kind == "long_dated"]}
+    # by when the first reward started
+    for name, lo, hi in [("started Oct 2025 - Mar 2026", "2025-10-01", "2026-04-01"), ("started Apr - Jun 2026", "2026-04-01", "2026-07-01"),
+                         ("started Jul - Sep 2026", "2026-07-01", "2026-10-01")]:
+        samples[name] = p[(p.t0 >= pd.Timestamp(lo, tz="UTC")) & (p.t0 < pd.Timestamp(hi, tz="UTC"))]
+    if by_size:
+        samples["full window"] = p[p.full_window]
     rows, meta = [], {}
     wcols = [f"w{w}" for w in weeks if w != REF]
     n_pre = sum(1 for w in weeks if w < REF)
@@ -282,12 +338,21 @@ def main():
             rows.append({**base, "term": "post", "coef": b[0], "se": se[0], "t": b[0] / se[0], "clusters": G})
             b, se, G = fe_ols(d, y, ["post", "ref_week"], ["stack_mkt", "stack_day"], "series")
             rows.append({**base, "term": "post_ex_w-1", "coef": b[0], "se": se[0], "t": b[0] / se[0], "clusters": G})
+            if sname == "full window":
+                # reward size, holding the program kind fixed: below / above the standard amount, or log dollars per day
+                for spec, sx, dd in [("size_groups", ["post_below", "post_above"], d), ("size_log", ["post_lograte"], d),
+                                     ("size_log_trim", ["post_lograte"], d[d.mid_size]), ("size_log_cat", ["post_lograte"] + catcols, d)]:
+                    xs = ["post"] + sx + ["post_ld"]
+                    b, se, G = fe_ols(dd, y, xs, ["stack_mkt", "stack_day"], "series")
+                    for name, bb, ss in zip(xs, b, se):
+                        rows.append({**base, "term": f"{spec}:{name}", "coef": bb, "se": ss, "t": bb / ss, "clusters": G,
+                                     "size_markets": dd.sid.nunique()})
             b, se, G = fe_ols(d, y, wcols, ["stack_mkt", "stack_day"], "series")
             for wc, bb, ss in zip(wcols, b, se):
                 rows.append({**base, "term": wc, "coef": bb, "se": ss, "t": bb / ss, "clusters": G})
-            wk = rows[-len(wcols):]
-            log(f"{sname:<20} {y:<11} stacks={base['stacks']:>6,} n={len(d):>10,}  post: {rows[-len(wcols) - 2]['coef']:+.5f} "
-                f"(t={rows[-len(wcols) - 2]['t']:+.1f})  pre weeks: " + " ".join(f"{r['coef']:+.4f}" for r in wk[:n_pre])
+            wk, post = rows[-len(wcols):], next(r for r in rows if r["sample"] == sname and r["outcome"] == y and r["term"] == "post")
+            log(f"{sname:<20} {y:<11} stacks={base['stacks']:>6,} n={len(d):>10,}  post: {post['coef']:+.5f} "
+                f"(t={post['t']:+.1f})  pre weeks: " + " ".join(f"{r['coef']:+.4f}" for r in wk[:n_pre])
                 + "  post weeks: " + " ".join(f"{r['coef']:+.4f}" for r in wk[n_pre:]))
             if sname == "all" and y == "brier":
                 u = usd.reindex(d.loc[d.treated == 1, "ticker"].unique())
@@ -295,6 +360,10 @@ def main():
         meta[sname] = {"stacks": int(d0.sid.nunique()), "rows": int(len(d0))}
     out = pd.DataFrame(rows)
     out.to_csv(f"{R}/13_reward_event_study{suffix}.csv", index=False)
+    if by_size:
+        meta["size_standard_rate"] = std
+        meta["size_markets"] = int(len(size))
+        meta["size_groups"] = {"below": int(below.sum()), "standard": int((~below & ~above).sum()), "above": int(above.sum())}
     meta.update({"treated_candidates": int(len(t)), "reward_usd_mean": float(usd.mean()), "reward_usd_median": float(usd.median()),
                  "pre": pre, "post": POST, "min_history": MIN_HISTORY, "n_ctrl": N_CTRL, "limit": a.limit,
                  "controls": a.controls, "match": a.match, "price": a.price, "placebo": a.placebo,

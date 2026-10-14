@@ -20,6 +20,7 @@ const SHORT = { '<1d': '< 1d', '1-7d': '1–7d', '7-30d': '1–4w', '1-3m': '1�
 function infoIcon(text) { const i = h('span', { class: 'info', tabindex: '0', 'aria-label': Array.isArray(text) ? text.join('. ') : text }); i.textContent = 'i'; const show = () => { const d = document.createElement('div'); if (Array.isArray(text)) { const ul = document.createElement('ul'); ul.className = 'tipul'; text.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }); d.appendChild(ul); } else d.textContent = text; d.style.maxWidth = '340px'; const b = i.getBoundingClientRect(); C.showTip({ clientX: b.right, clientY: b.bottom }, d); }; i.addEventListener('pointerenter', show); i.addEventListener('focus', show); i.addEventListener('pointerleave', C.hideTip); i.addEventListener('blur', C.hideTip); return i; }
 const card = (title, sub, how, cls = 'card') => h('div', { class: cls }, h('h3', {}, title, how ? infoIcon(how) : null), sub ? h('div', { class: 'sub' }, sub) : null);
 function pageHead(main, title, lead) { main.append(h('h2', { class: 'pagetitle' }, title), h('p', { class: 'lead' }, lead)); }
+function subHead(main, title, desc) { main.append(h('div', { class: 'subsection' }, h('h4', {}, title), desc ? h('p', {}, desc) : null)); }
 function sectionHead(main, title, desc) { main.append(h('div', { class: 'section' }, h('h3', {}, title), desc ? h('p', {}, desc) : null)); }
 function tile(v, l, s) { return h('div', { class: 'tile' }, h('div', { class: 'v' }, v), h('div', { class: 'l' }, l), s ? h('div', { class: 's' }, s) : null); }
 function simpleTable(cols, rows) { return h('div', { class: 'tablewrap' }, h('table', {}, h('thead', {}, h('tr', {}, cols.map(c => h('th', { class: c.num ? 'num' : '' }, c.label, c.tip ? infoIcon(c.tip) : null)))), h('tbody', {}, rows.map(r => h('tr', {}, cols.map(c => h('td', { class: (c.num ? 'num ' : '') + (c.cls ? c.cls(r) : '') }, c.render ? c.render(r) : r[c.key] ?? '–'))))))); }
@@ -505,7 +506,7 @@ function pageRewards(main) {
   }
 
   // 3 ── who gets rewarded
-  sectionHead(main, '3. Which markets get rewards', 'Markets in our market list (still open on 14 Jul 2026 or later); sports and crypto left out.');
+  sectionHead(main, '3. Which markets get rewards', 'The liquidity programs from section 2. Markets in our market list (still open on 14 Jul 2026 or later); sports and crypto left out.');
   const R = S.reward_coverage, sh = hz => R.find(r => r.hz === hz);
   const c1 = card('Share of markets ever given a liquidity reward', 'By how far ahead of its close the market was listed.');
   C.vbar(c1, R.map(r => SHORT[r.hz]), R.map(r => r.share_liquidity_reward), { fmtV: v => pct(v), H: 210 });
@@ -534,7 +535,7 @@ function pageRewards(main) {
 
   // 4 ── comparison A: reward days vs other days
   const E = Object.fromEntries([...S.reward_effects, ...S.info_effects.filter(r => r.outcome === 'info_gain')].map(r => [r.outcome + '|' + r.reward, r]));
-  sectionHead(main, '4. First comparison: the same market on reward days vs its other days', `${fi(S.samples.panel.markets)} markets listed at least 60 days before their close, open between 15 Mar and 31 Aug 2026, that traded at least once (${fi(S.samples.panel.market_days)} market-days; each market’s last two days dropped). Each market is compared with itself, so differences between markets drop out.`);
+  sectionHead(main, '4. Comparison 1: reward days vs the same market’s other days', `Uses the measures from section 1. ${fi(S.samples.panel.markets)} markets listed at least 60 days before their close, open between 15 Mar and 31 Aug 2026, that traded at least once (${fi(S.samples.panel.market_days)} market-days; each market’s last two days dropped). Each market is compared with itself, so differences between markets drop out.`);
   const a1 = card('Method', null, null, 'card wide');
   a1.append(
     h('div', { class: 'formula' }, tex(String.raw`\text{Outcome}_{m,d} = \beta_1\,\text{LongDated}_{m,d} + \beta_2\,\text{OtherReward}_{m,d} + \textstyle\sum_b \gamma_b\,\mathbf{1}[\text{DaysToClose}_{m,d} \in b] + \alpha_m + \delta_d + \varepsilon_{m,d}`, true)),
@@ -563,7 +564,7 @@ function pageRewards(main) {
     h('p', { class: 'note' }, 'Each β cell: the estimate, then its standard error (SE) and p-value. Stars: * p < 0.05, ** p < 0.01, *** p < 0.001; bold = significant at 5%.'),
     h('p', { class: 'note' }, 'Reading: on reward days spreads are much tighter, quotes on both sides are more common, and many more markets trade.'),
     h('p', { class: 'note' }, `Why “price moving toward the outcome” has two rows: the first row takes the midpoint between the best buy and sell order as the day’s price. Rewards narrow the spread, and a narrower spread by itself moves the midpoint closer to where the market really is. That can look like the price learning about the outcome when nobody learned anything. The second row uses only actual trade prices, on days when the market traded both that day and the day before, so a narrower spread cannot move the price by itself. With trade prices, the long-dated reward’s effect is about zero (p ${pval(TR.rw_long_dated.t).toFixed(2)}), so its effect in the first row was likely just the tighter spread. Other liquidity rewards still show prices moving toward the outcome (p ${pval(TR.rw_liquidity.t).toFixed(2)}).`),
-    h('p', { class: 'note' }, 'Limitation: Kalshi decides when rewards run, possibly when markets are about to get busy, so the next comparison adds a control group.'));
+    h('p', { class: 'note' }, 'Limitation: Kalshi decides when rewards run, possibly when markets are about to get busy, so comparison 2 (section 5) adds a control group.'));
   main.append(h('div', { class: 'grid', style: 'margin-top:4px' }, a1, a2));
 
   // 5 ── comparison B: before vs after the first reward, against never-rewarded markets
@@ -573,19 +574,29 @@ function pageRewards(main) {
     const nStacks = Math.max(...RE.map(r => r.stacks || 0)), nCtrl = Math.max(...RE.map(r => r.control_markets || 0));
     const bp = get('brier', 'post'), nSettled = bp.stacks;
     const pfmt = p => p < 0.001 ? '< 0.001' : p.toFixed(3);
-    sectionHead(main, '5. Second comparison: after a market’s first reward, against similar markets with no reward');
+    sectionHead(main, '5. Comparison 2: before vs after a market’s first reward, against never-rewarded markets', 'A difference-in-differences design that adds the control group comparison 1 lacks.');
+    subHead(main, '5.1 Design');
     const g1 = card('Why and how', null, null, 'card wide');
     g1.append(
-      h('p', {}, 'Section 4 has a weakness: Kalshi chooses when to reward a market, possibly right before the market would have improved anyway. So here we ask: after a market’s first reward, does it improve more than similar markets that got no reward in the same weeks?'),
+      h('p', {}, 'Comparison 1 (section 4) has a weakness: Kalshi chooses when to reward a market, possibly right before the market would have improved anyway. So here we ask: after a market’s first reward, does it improve more than similar markets that got no reward in the same weeks?'),
       h('ol', { class: 'plain' },
         h('li', {}, h('b', {}, 'Rewarded markets. '), `The market’s first reward was a liquidity reward, starting between Oct 2025 and Sep 2026. The market had been listed for at least 14 days before it and had at least 7 days left. ${fi(nStacks)} markets${M.treated_candidates ? ` (of ${fi(M.treated_candidates)} that qualify; the rest have no control)` : ''}.`),
         h('li', {}, h('b', {}, 'Controls. '), `For each rewarded market, up to 10 markets from the same series (the same recurring question, e.g. other CPI months or thresholds) that never had a reward and were trading at the same time. We pick those whose price in weeks −4 to −2 was about as far from 50¢ as the rewarded market’s, so both start out about equally uncertain. ${fi(nCtrl)} control markets in total.`),
         h('li', {}, h('b', {}, 'Window. '), 'From 4 weeks before the first reward day to 8 weeks after; week 0 is the first week of the reward. Every calendar day counts (a day with no activity counts as a day without a trade). Each market’s last day is dropped.'),
         h('li', {}, h('b', {}, 'Comparison. '), 'Each week, the gap between the rewarded market and its controls, minus that gap in week −1. News that affects both cancels out.')));
     main.append(h('div', { class: 'grid' }, g1));
+    const g4 = card('The regression', null, null, 'card wide');
+    g4.append(h('div', { class: 'formula' }, tex(String.raw`y_{m,d} = \textstyle\sum_{w \neq -1} \delta_w \,\text{Rewarded}_m\,\mathbf{1}[\text{week}(d) = w] + \alpha_{m} + \gamma_{d} + \varepsilon_{m,d}`, true)),
+      h('ul', { class: 'plain' },
+        h('li', {}, tex('y_{m,d}'), ': the measure for market ', tex('m'), ' on day ', tex('d'), '; ', tex(String.raw`\text{Rewarded}_m`), ' = 1 for the rewarded market, 0 for its controls'),
+        h('li', {}, tex(String.raw`\delta_w`), ': the effect in week ', tex('w'), ' (the points in the charts)'),
+        h('li', {}, tex(String.raw`\alpha_m`), ': a constant per market; ', tex(String.raw`\gamma_d`), ': a constant per calendar day'),
+        h('li', {}, 'Each rewarded market and its controls form one group, with α and γ estimated within the group (a “stacked event study”). Standard errors clustered by series. The 8-week average replaces the weekly terms with one after-reward term, compared with all 4 weeks before.')));
+    main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, g4));
 
     const X = S.reward_es_example;
     if (X) {
+      subHead(main, '5.2 A real example', 'One typical rewarded market and its controls, before and after.');
       const T = X.treated, MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const dt = s => `${+s.slice(8, 10)} ${MON[+s.slice(5, 7) - 1]} ${s.slice(0, 4)}`;
       const dig = y => y === 'spread' ? 1 : 4, unit = y => y === 'spread' ? '¢' : '';
@@ -607,26 +618,23 @@ function pageRewards(main) {
         h('p', {}, h('b', {}, 'Controls: '), `${X.controls.length} markets from the same series that never had a reward and were trading at the same time:`),
         h('ul', { class: 'plain' }, X.controls.map(c => h('li', {}, `“${c.event}”: ${c.sub} (resolved ${c.result})`))),
         h('div', { class: 'grid', style: 'margin-top:8px' }, h('div', { style: 'min-width:0' }, exTable('spread', 'Spread')), h('div', { style: 'min-width:0' }, exTable('brier', 'Brier score'))),
-        h('p', { class: 'note' }, `Reading: over the same weeks the controls’ spreads ${move(sp.controls[0], sp.controls[1])} and the rewarded market’s ${move(sp.rewarded[0], sp.rewarded[1])}, so the reward’s effect on its spread is ${num(X.change.spread, 1)}¢; its effect on the Brier score is ${num(X.change.brier, 4)}. The full analysis does this for all ${fi(nStacks)} rewarded markets at once, week by week.`),
+        h('ul', { class: 'plain' },
+          h('li', {}, `Over the same weeks, the controls’ spreads ${move(sp.controls[0], sp.controls[1])} and the rewarded market’s ${move(sp.rewarded[0], sp.rewarded[1])}.`),
+          h('li', {}, `So the reward’s effect on its spread is ${num(X.change.spread, 1)}¢, and on its Brier score ${num(X.change.brier, 4)}.`),
+          h('li', {}, `The full analysis does the same for all ${fi(nStacks)} rewarded markets at once, week by week.`)),
         h('p', { class: 'note' }, `How this example was picked: ${X.candidates} rewarded markets have spreads on most days and at least 3 settled controls; ${X.eligible} of them also have controls with a similar starting price and a steady spread before the reward. This is the one whose changes are closest to the median of those ${X.eligible} (spread ${num(X.median_change.spread, 1)}¢, Brier ${num(X.median_change.brier, 4)}). Most rewarded markets look like this: their Brier score barely moves. The average Brier change (${num(X.mean_change.brier, 3)}) is pulled by a few markets that started far from the outcome.`));
       main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, ex1));
       main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, exChart('spread', 'Example: spread', v => v.toFixed(1) + '¢'), exChart('brier', 'Example: Brier score', v => v.toFixed(3))));
     }
 
-    const g3 = card('How to read the charts');
+    subHead(main, '5.3 Results, week by week', 'All rewarded markets at once, using the regression from 5.1.');
+    const g3 = card('How to read the charts', null, null, 'card wide');
     g3.append(h('ul', { class: 'plain' },
       h('li', {}, 'Week −1 is 0 by design.'),
       h('li', {}, 'Weeks −4 to −2 near 0: the two groups moved together before the reward, so the controls are a fair comparison.'),
       h('li', {}, 'From week 0 on, the distance from 0 is the effect of the reward.'),
       h('li', {}, 'The shaded band is the 95% confidence range. Where it does not cover 0, the effect is significant.')));
-    const g4 = card('The regression behind the charts');
-    g4.append(h('div', { class: 'formula' }, tex(String.raw`y_{m,d} = \textstyle\sum_{w \neq -1} \delta_w \,\text{Rewarded}_m\,\mathbf{1}[\text{week}(d) = w] + \alpha_{m} + \gamma_{d} + \varepsilon_{m,d}`, true)),
-      h('ul', { class: 'plain' },
-        h('li', {}, tex('y_{m,d}'), ': the measure for market ', tex('m'), ' on day ', tex('d'), '; ', tex(String.raw`\text{Rewarded}_m`), ' = 1 for the rewarded market, 0 for its controls'),
-        h('li', {}, tex(String.raw`\delta_w`), ': the effect in week ', tex('w'), ' (the points in the charts)'),
-        h('li', {}, tex(String.raw`\alpha_m`), ': a constant per market; ', tex(String.raw`\gamma_d`), ': a constant per calendar day'),
-        h('li', {}, 'Each rewarded market and its controls form one group, with α and γ estimated within the group (a “stacked event study”). Standard errors clustered by series. The 8-week average replaces the weekly terms with one after-reward term, compared with all 4 weeks before.')));
-    main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, g3, g4));
+    main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, g3));
 
     const WK = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7];
     const weekRows = rows => w => w === -1 ? { coef: 0, se: 0 } : rows.find(r => r.term === `w${w}`);
@@ -648,12 +656,13 @@ function pageRewards(main) {
       esCard('traded', 'Traded', 'Rewarded minus controls, percentage points. Above 0 = more likely to trade on a given day.', v => (v * 100).toFixed(1) + ' pts',
         (rows, w) => `In the first week, rewarded markets are ${(w(0).coef * 100).toFixed(0)} points more likely to trade on a given day; by week 2 the gap is down to ${(w(2).coef * 100).toFixed(0)} points.`),
       esCard('brier', 'Brier score', `Rewarded minus controls. Below 0 = more accurate price. Only the ${fi(nSettled)} rewarded markets that have settled.`, v => v.toFixed(3),
-        (rows, w) => `Flat before the reward, then falling to about ${Math.min(...[0, 1, 2, 3, 4, 5, 6, 7].map(k => w(k).coef)).toFixed(3)} by week 7. Caution: rewarded markets start out much less certain than their controls (average Brier ${bPre.toFixed(3)} vs ${bPreC.toFixed(3)} before the reward), and uncertain markets have more room to improve as the outcome nears. The check below looks at this.`)));
+        (rows, w) => `Flat before the reward, then falling to about ${Math.min(...[0, 1, 2, 3, 4, 5, 6, 7].map(k => w(k).coef)).toFixed(3)} by week 7. Caution: rewarded markets start out much less certain than their controls (average Brier ${bPre.toFixed(3)} vs ${bPreC.toFixed(3)} before the reward), and uncertain markets have more room to improve as the outcome nears. Section 5.4 checks this.`)));
 
     const U = S.reward_es_uncertain || [], uR = U.filter(r => r.version === 'uncertain'), uP = U.filter(r => r.version === 'placebo_uncertain');
     if (uR.length && uP.length) {
       const atR = weekRows(uR), atP = weekRows(uP), postR = uR.find(r => r.term === 'post'), postP = uP.find(r => r.term === 'post');
-      const fmtB = v => v.toFixed(3), u1 = card('Check: do uncertain markets get more accurate anyway?', 'Only markets that start out uncertain: average Brier score of at least 0.05 in weeks −4 to −2.', null, 'card wide');
+      subHead(main, '5.4 Check: do uncertain markets get more accurate anyway?', 'Rewarded markets start out less certain than their controls; this asks whether that alone explains the Brier drop in 5.3.');
+      const fmtB = v => v.toFixed(3), u1 = card('Brier score, markets that start out uncertain', 'Only markets that start out uncertain: average Brier score of at least 0.05 in weeks −4 to −2.', null, 'card wide');
       u1.append(h('ul', { class: 'plain', style: 'margin-bottom:18px' },
         h('li', {}, h('b', {}, 'Y-axis: '), 'Brier score minus the controls’ Brier score, relative to week −1. Below 0 = became more accurate than the controls.'),
         h('li', {}, h('b', {}, 'Solid line: '), `real rewarded markets against their never-rewarded controls (${fi(postR.stacks)} markets). Shaded band = 95% range.`),
@@ -661,7 +670,11 @@ function pageRewards(main) {
       C.line(u1, WK.map(w => (w > 0 ? '+' : '') + w), [{ name: 'Real rewards', values: WK.map(w => atR(w) ? atR(w).coef : null) }, { name: 'Fake reward dates', values: WK.map(w => atP(w) ? atP(w).coef : null), dash: '5 4' }],
         { fmtV: fmtB, fmtX: x => 'week ' + x, H: 210, W: 900, band: band(atR), ylabel: 'Brier gap vs controls' });
       const pp = pval(postP.t), pr = pval(postR.t);
-      u1.append(h('p', { class: 'note' }, `Reading: with real rewards, Brier falls ${Math.abs(postR.coef).toFixed(3)} more than the controls’ over 8 weeks (p ${pfmt(pr)}), starting in week 0. With fake dates the average is ${num(postP.coef, 3)} (p ${pfmt(pp)}): flat at first, but falling too from week 3, and by week 7 the two lines meet (${num(atR(7).coef, 3)} real, ${num(atP(7).coef, 3)} fake). So the early drop looks like a reward effect; the later drop is likely uncertain markets moving toward the answer anyway.`));
+      u1.append(h('ul', { class: 'plain' },
+        h('li', {}, `With real rewards, the Brier score falls ${Math.abs(postR.coef).toFixed(3)} more than the controls’ over 8 weeks (p ${pfmt(pr)}), starting in week 0.`),
+        h('li', {}, `With fake dates, it is flat at first but falls too from week 3 (8-week average ${num(postP.coef, 3)}, p ${pfmt(pp)}).`),
+        h('li', {}, `By week 7 the two lines meet (${num(atR(7).coef, 3)} real, ${num(atP(7).coef, 3)} fake).`),
+        h('li', {}, 'So rewarded markets improve sooner, but much of the 8-week gain may happen anyway as uncertain markets approach the answer.')));
       main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, u1));
     }
 
@@ -675,31 +688,123 @@ function pageRewards(main) {
       ['event_matched', 'Where controls come from', 'Same event only, most similar trading volume', 'same-event volume-matched controls'],
       ['mid', 'Which days get a Brier score', 'Only days with quotes on both sides (midpoint price)', 'two-sided days only'],
       ['pre56', 'Length of the before-period', '8 weeks instead of 4', 'the 8-week before-period'],
+      ['period: started Oct 2025 - Mar 2026', 'When the first reward started', 'Oct 2025 – Mar 2026', ''],
+      ['period: started Apr - Jun 2026', 'When the first reward started', 'Apr – Jun 2026 (mostly the long-dated program)', ''],
+      ['period: started Jul - Sep 2026', 'When the first reward started', 'Jul – Sep 2026 (shorter windows before the data ends)', ''],
       ['uncertain', 'Only markets that start out uncertain', 'Real rewards', 'uncertain markets'],
       ['placebo_uncertain', 'Only markets that start out uncertain', 'Fake reward dates on never-rewarded markets', ''],
       ['placebo', 'Placebo check', 'Never-rewarded markets given fake reward dates (should show nothing)', ''],
     ].filter(([k]) => V.some(r => r.version === k));
     const vv = (ver, o) => V.find(r => r.version === ver && r.outcome === o && r.term === 'post');
-    const vcell = (ver, o, f) => { const r = vv(ver, o); if (!r || r.coef == null) return '–'; const p = pval(r.t); return h('span', {}, h('span', { class: p < 0.05 ? 'sig' : '' }, f(r.coef) + stars(p)), h('br'), h('span', { class: 'muted small' }, `SE ${f(r.se).replace(/^\+/, '')}`)); };
-    const b2 = card('Does the answer depend on choices we made?', 'Each row changes one thing from the main version and reruns the comparison. Cells: the average effect over the 8 weeks after. Bold = significant at 5% (* p < 0.05, ** p < 0.01, *** p < 0.001).', null, 'card wide');
+    const vcell = (ver, o, f) => { const r = vv(ver, o); if (!r || r.coef == null) return '–'; const p = pval(r.t); return h('span', {}, h('span', { class: p < 0.05 ? 'sig' : '' }, f(r.coef) + stars(p)), h('br'), h('span', { class: 'muted small' }, `SE ${f(r.se).replace(/^[+−]/, '')} · ${fi(r.stacks)} mkts`)); };
+    subHead(main, '5.5 Does the answer depend on our choices?', 'The comparison from 5.3, rerun with one choice changed at a time.');
+    const b2 = card('Robustness: one change at a time', 'Each row changes one thing from the main version and reruns the comparison. Cells: the average effect over the 8 weeks after, its standard error and the number of rewarded markets. Bold = significant at 5% (* p < 0.05, ** p < 0.01, *** p < 0.001).', null, 'card wide');
     b2.append(simpleTable([{ key: 0, label: 'What changes' }, { key: 1, label: 'Version' }, { key: 2, label: 'Spread', num: true }, { key: 3, label: 'Traded', num: true }, { key: 4, label: 'Brier', num: true }],
       VER.map(([k, choice, what], i) => [i > 0 && VER[i - 1][1] === choice ? '' : h('b', {}, choice), what, vcell(k, 'spread', v => num(v, 1) + '¢'), vcell(k, 'traded', v => num(v * 100, 1) + ' pts'), vcell(k, 'brier', v => num(v, 3))])));
-    const real = VER.filter(([k]) => !k.startsWith('placebo') && k !== 'uncertain').map(([k]) => vv(k, 'brier')).filter(Boolean);
+    const real = VER.filter(([k]) => !k.startsWith('placebo') && !k.startsWith('period') && k !== 'uncertain').map(([k]) => vv(k, 'brier')).filter(Boolean);
     const nsig = real.filter(r => pval(r.t) < 0.05).length;
-    b2.append(h('p', { class: 'note' }, `Reading: narrower spreads and more trading appear in every version. Same-event controls halve the spread effect, probably because traders chasing a reward also quote the neighbouring thresholds. The Brier effect is similar in every version (${Math.max(...real.map(r => r.coef)).toFixed(3)} to ${Math.min(...real.map(r => r.coef)).toFixed(3)}; significant in ${nsig} of ${real.length}), but see the check above: matching on the starting Brier score does not remove the gap in certainty, because almost all available controls are near-certain. The plain placebo shows nothing, as it should.`));
+    b2.append(h('ul', { class: 'plain' },
+      h('li', {}, 'Narrower spreads and more trading show up in every version.'),
+      h('li', {}, 'With controls from the same event only, the spread effect is about half as large, probably because traders chasing a reward also quote the neighbouring thresholds.'),
+      h('li', {}, `The Brier effect is about the same in every version (${num(Math.max(...real.map(r => r.coef)), 3)} to ${num(Math.min(...real.map(r => r.coef)), 3)}; significant in ${nsig} of ${real.length}). But matching on the starting Brier score does not close the gap in certainty (see 5.4), because almost all available controls are near-certain.`),
+      h('li', {}, 'The spread and trading effects show up for rewards started in every period. They look larger for Jul – Sep rewards mainly because few of those have the full 8 weeks before the data ends, so their average leans on the first weeks; those markets are also closer to closing.'),
+      h('li', {}, 'The plain placebo shows nothing, as it should.')));
     main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, b2));
+
+    // synthetic DiD
+    const SD = S.reward_sdid || [], sd = (ver, o, term = 'post') => SD.find(r => r.version === ver && r.outcome === o && r.term === term);
+    const sdcell = (r, f) => { if (!r || r.coef == null) return '–'; const p = pval(r.t); return h('span', {}, h('span', { class: p < 0.05 ? 'sig' : '' }, f(r.coef) + stars(p)), h('br'), h('span', { class: 'muted small' }, `SE ${f(r.se).replace(/^[+−]/, '')} · ${fi(r.stacks)} mkts`)); };
+    if (SD.length) {
+      sectionHead(main, '6. Comparison 3: synthetic difference-in-differences', 'Same question and pool of rewarded markets as section 5, but the controls are weighted to match each rewarded market (Arkhangelsky et al., 2021). It needs data in all 12 weeks, so it uses only markets observed through week 7 (at least 8 weeks left) with at least one such control.');
+      const m6 = card('Method', null, null, 'card wide');
+      m6.append(h('ul', { class: 'plain' },
+        h('li', {}, h('b', {}, 'How: '), 'for each rewarded market, every never-rewarded market in its series is a candidate control. The controls get weights so that, together, they move in parallel with the rewarded market in weeks −4 to −1; the weeks before the reward get weights too (Arkhangelsky et al., 2021). The effect is the rewarded market’s change minus the weighted controls’ change, averaged over rewarded markets. Standard errors from a bootstrap over series.')));
+      m6.append(h('details', {}, h('summary', {}, 'Show the formulas'),
+        h('div', { class: 'formula' }, tex(String.raw`(\hat\omega_0, \hat\omega) = \arg\min_{\omega_0,\ \omega \in \Delta}\ \sum_{t=-4}^{-1} \Big(\omega_0 + \sum_i \omega_i Y_{i,t} - Y_{T,t}\Big)^2 + \zeta^2\, T_{\text{pre}} \sum_i \omega_i^2`, true)),
+        h('div', { class: 'formula' }, tex(String.raw`(\hat\lambda_0, \hat\lambda) = \arg\min_{\lambda_0,\ \lambda \in \Delta}\ \sum_i \Big(\lambda_0 + \sum_{t=-4}^{-1} \lambda_t Y_{i,t} - \bar Y_{i,\text{post}}\Big)^2`, true)),
+        h('div', { class: 'formula' }, tex(String.raw`\hat\tau_T = \Big(\bar Y_{T,\text{post}} - \sum_t \hat\lambda_t Y_{T,t}\Big) - \sum_i \hat\omega_i \Big(\bar Y_{i,\text{post}} - \sum_t \hat\lambda_t Y_{i,t}\Big)`, true)),
+        h('ul', { class: 'plain' },
+          h('li', {}, tex('Y_{T,t}'), ', ', tex('Y_{i,t}'), ': weekly average of the measure for the rewarded market ', tex('T'), ' and control ', tex('i'), ' in week ', tex('t'), '; ', tex(String.raw`\bar Y_{\cdot,\text{post}}`), ': average over weeks 0 to 7.'),
+          h('li', {}, tex(String.raw`\Delta`), ': weights that are at least 0 and sum to 1. ', tex(String.raw`\omega_0`), ' and ', tex(String.raw`\lambda_0`), ' allow a constant gap, so the controls must match the rewarded market’s path, not its level.'),
+          h('li', {}, tex(String.raw`\zeta = T_{\text{post}}^{1/4}\,\sigma`), ' (', tex(String.raw`\sigma`), ': standard deviation of the controls’ week-to-week changes before the reward) keeps the weights from piling onto one control; ', tex(String.raw`T_{\text{pre}} = 4`), ', ', tex(String.raw`T_{\text{post}} = 8`), ' weeks.'),
+          h('li', {}, 'The reported effect is the average of ', tex(String.raw`\hat\tau_T`), ' over rewarded markets.'))));
+      main.append(h('div', { class: 'grid' }, m6));
+      const k1 = card('Results', null, null, 'card wide');
+      const fS = x => num(x, 1) + '¢', fT = x => num(x * 100, 1) + ' pts', fB = x => num(x, 3);
+      const SDROWS = [['main', 'post', 'Synthetic DiD'], ['main', 'did_same_sample', 'Same markets, plain DiD (equal weights)'], ['placebo', 'post', 'Fake reward dates'],
+        ['uncertain', 'post', 'Uncertain markets: real rewards'], ['placebo_uncertain', 'post', 'Uncertain markets: fake reward dates']].filter(([v]) => SD.some(r => r.version === v));
+      k1.append(simpleTable([{ key: 0, label: 'Version' }, { key: 1, label: 'Spread', num: true }, { key: 2, label: 'Traded', num: true }, { key: 3, label: 'Brier', num: true }],
+        SDROWS.map(([v, term, lab]) => [lab, sdcell(sd(v, 'spread', term), fS), sdcell(sd(v, 'traded', term), fT), sdcell(sd(v, 'brier', term), fB)])));
+      const e8 = o => sd('pre56', o);
+      const unS = SD.filter(r => r.version.includes('uncertain') && r.term === 'post' && r.series).map(r => r.series);
+      k1.append(h('p', { class: 'note' }, `Uncertain markets: average Brier of at least 0.05 in weeks −4 to −2. –: fewer than 30 markets. Standard errors from a bootstrap over series${unS.length ? `; the uncertain rows rest on only ${Math.min(...unS)}–${Math.max(...unS)} series` : ''}.`));
+      const sM = sd('main', 'spread'), sT = sd('main', 'traded'), sB = sd('main', 'brier'), dS = sd('main', 'spread', 'did_same_sample'), dB = sd('main', 'brier', 'did_same_sample'), mB = sd('main', 'brier', 'post_median');
+      const pS = sd('placebo', 'spread'), pT = sd('placebo', 'traded'), pB = sd('placebo', 'brier'), uR = sd('uncertain', 'brier'), uP = sd('placebo_uncertain', 'brier');
+      if (sM && sT && sB && dS && dB && pS && pB && uR && uP) k1.append(h('ul', { class: 'plain' },
+        h('li', {}, `Spread and trading effects are about the same as in section 5 (spread ${fS(sM.coef)}, trading ${fT(sT.coef)}).`),
+        h('li', {}, `With fake reward dates, the spread still moves a little (${fS(pS.coef)}, about ${Math.round(Math.abs(pS.coef / sM.coef) * 100)}% of the real effect, but statistically significant)${pT ? `; trading does not move (${fT(pT.coef)})` : ''}.`),
+        h('li', {}, `The results differ from section 5 mainly because this section uses a different set of markets (only rewarded markets with data in all 12 weeks, compared with all never-rewarded markets in their series), not because of the weighting: plain DiD on the same markets gives almost the same numbers (spread ${fS(dS.coef)}, Brier ${fB(dB.coef)}).`),
+        h('li', {}, `Brier falls ${Math.abs(sB.coef).toFixed(3)} on average (borderline, p = ${pfmt(pval(sB.t))}), against ${Math.abs(pB.coef).toFixed(3)} with fake dates. For most markets the Brier score barely changes (the middle market’s effect is ${fB(mB.coef)}); the average is pulled down by a few markets with large drops.`),
+        h('li', {}, `Among uncertain markets, fake dates give about the same 8-week Brier drop as real rewards (${fB(uP.coef)} vs ${fB(uR.coef)}), on few markets (${fi(uP.stacks)}–${fi(uR.stacks)}). As in 5.4, the drop starts earlier with real rewards.`),
+        e8('spread') && e8('traded') && e8('brier') ? h('li', {}, `Using 8 weeks before the reward instead of 4 gives similar numbers (spread ${fS(e8('spread').coef)}, trading ${fT(e8('traded').coef)}, Brier ${fB(e8('brier').coef)}).`) : null));
+      main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, k1));
+    }
+
+    // reward size
+    const fw = (o, term) => (S.reward_es || []).find(r => r.sample === 'full window' && r.outcome === o && r.term === term);
+    if (fw('spread', 'size_groups:post') && M.size_standard_rate) {
+      sectionHead(main, '7. Do bigger rewards do more?', `Section 5’s comparison with the size of the first reward added, for rewarded markets observed for all 8 weeks after the reward (${fi(M.size_markets)} markets) and their controls.`);
+      const z1 = card('Regression', null, null, 'card wide');
+      z1.append(h('div', { class: 'formula' }, tex(String.raw`y_{m,d} = \beta_1\,\text{Post}_{m,d} + \beta_2\,\text{Post}_{m,d}\times\text{Size}_m + \beta_3\,\text{Post}_{m,d}\times\text{LongDated}_m + \alpha_m + \gamma_d + \varepsilon_{m,d}`, true)),
+        h('ul', { class: 'plain' },
+          h('li', {}, tex(String.raw`\text{Post}_{m,d}`), ' = 1 for the rewarded market on days after its first reward; ', tex(String.raw`\alpha_m`), ', ', tex(String.raw`\gamma_d`), ': market and day constants within each group, as in 5.1.'),
+          h('li', {}, tex(String.raw`\text{Size}_m`), ` is measured in two ways, shown as separate columns: (a) two indicators, for a first reward below or above Kalshi’s standard amount of ${usd(M.size_standard_rate)} a day (the most common amount: ${fi(M.size_groups.below)} markets below, ${fi(M.size_groups.standard)} at, ${fi(M.size_groups.above)} above); (b) the log of the first reward’s dollars per day, minus its average.`),
+          h('li', {}, tex(String.raw`\text{LongDated}_m`), ' = 1 if the first reward is Kalshi’s long-dated program. Standard errors clustered by series.'),
+          h('li', {}, tex(String.raw`\beta_1`), ' is the effect for a market with the standard (a) or average-size (b) first reward that is not long-dated; ', tex(String.raw`\beta_2`), ' is how that effect changes with size.')));
+      const cell = r => { if (!r) return ''; const p = pval(r.t), f = r.outcome === 'spread' ? (x => num(x, 2) + '¢') : r.outcome === 'traded' ? (x => num(x * 100, 1) + ' pts') : (x => num(x, 3)); return h('span', {}, h('span', { class: p < 0.05 ? 'sig' : '' }, f(r.coef) + stars(p)), h('br'), h('span', { class: 'muted small' }, `(${f(r.se).replace(/^[+−]/, '')})`)); };
+      const O3 = ['spread', 'traded', 'brier'], SP = ['size_groups', 'size_log'];
+      const cols = [{ key: 0, label: '' }, ...O3.flatMap((o, i) => SP.map((sp, j) => ({ key: 1 + 2 * i + j, label: `${{ spread: 'Spread', traded: 'Traded', brier: 'Brier' }[o]} (${'ab'[j]})`, num: true })))];
+      const line = (lab, term) => [lab, ...O3.flatMap(o => SP.map(sp => term(sp) ? cell(fw(o, `${sp}:${term(sp)}`)) : ''))];
+      z1.append(simpleTable(cols, [
+        line(h('span', {}, tex(String.raw`\beta_1`), ' Post'), () => 'post'),
+        line(h('span', {}, tex(String.raw`\beta_2`), ' Post × below standard'), sp => sp === 'size_groups' ? 'post_below' : null),
+        line(h('span', {}, tex(String.raw`\beta_2`), ' Post × above standard'), sp => sp === 'size_groups' ? 'post_above' : null),
+        line(h('span', {}, tex(String.raw`\beta_2`), ' Post × log daily reward'), sp => sp === 'size_log' ? 'post_lograte' : null),
+        line(h('span', {}, tex(String.raw`\beta_3`), ' Post × long-dated'), () => 'post_ld'),
+        ['Rewarded markets', ...O3.flatMap(o => SP.map(sp => fi(fw(o, `${sp}:post`)?.stacks)))],
+      ]));
+      const sig = r => r && pval(r.t) < 0.05;
+      const what = { spread: 'a larger spread drop', traded: 'more trading', brier: 'a larger Brier drop' };
+      z1.append(h('p', { class: 'note' }, 'Standard errors in parentheses. * p < 0.05, ** p < 0.01, *** p < 0.001.'),
+        h('ul', { class: 'plain' },
+          (() => {
+            const desc = { spread: (v, x) => `${x} first rewards ${v < 0 ? 'cut' : 'raise'} the spread ${Math.abs(v).toFixed(1)}¢ more than the standard amount`, traded: (v, x) => `${x} first rewards ${v > 0 ? 'raise' : 'lower'} the chance of trading by ${Math.abs(v * 100).toFixed(1)} pts more than the standard amount`, brier: (v, x) => `${x} first rewards change the Brier score by ${num(v, 3)} relative to the standard amount` };
+            const hits = O3.flatMap(o => [['post_below', 'Below-standard'], ['post_above', 'Above-standard']].filter(([x]) => sig(fw(o, `size_groups:${x}`))).map(([x, lab]) => desc[o](fw(o, `size_groups:${x}`).coef, lab)));
+            return h('li', {}, `(a) ${hits.length ? hits.join('; ') + '. No other β2 estimate is significant.' : 'The two β2 rows have no significant estimate: below-, at- and above-standard first rewards have similar effects.'}`);
+          })(),
+          (() => {
+            const ok = (o, sp) => { const r = fw(o, `${sp}:post_lograte`); return r && pval(r.t) < 0.05 && Math.sign(r.coef) === (o === 'traded' ? 1 : -1); };
+            const robust = O3.filter(o => ok(o, 'size_log') && ok(o, 'size_log_trim') && ok(o, 'size_log_cat')).map(o => what[o]);
+            const fragile = O3.filter(o => ok(o, 'size_log') && !(ok(o, 'size_log_trim') && ok(o, 'size_log_cat'))).map(o => `${what[o]} (${[!ok(o, 'size_log_trim') ? 'not significant without the 5% smallest and largest rewards' : null, !ok(o, 'size_log_cat') ? 'not significant once market category is controlled for' : null].filter(Boolean).join('; ')})`);
+            const list = xs => xs.join(', ').replace(/, ([^,]*)$/, ' and $1');
+            return h('li', {}, `(b) ${robust.length ? `A larger daily reward goes with ${list(robust)}; this holds without the 5% smallest and largest rewards and with market-category controls.` : 'No size effect survives trimming extreme rewards and controlling for market category.'}${fragile.map(f => ` The link with ${f.replace(' (', ' is fragile (')}.`).join('')} Doubling the reward is 0.69 on the log scale.`);
+          })(),
+          h('li', {}, `Caution: Kalshi picks the reward size, and bigger rewards may go to markets that start out less certain. The Brier columns use only ${fi(fw('brier', 'size_groups:post')?.stacks)} settled markets.`)));
+      main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, z1));
+    }
 
     // 6 ── summary
     const sp0 = get('spread', 'w0'), spPre = preAvg(RE.filter(r => r.outcome === 'spread')), spPost = get('spread', 'post'), spEx = get('spread', 'post_ex_w-1'), tr0 = get('traded', 'w0'), tr2 = get('traded', 'w2');
-    const pl = vv('placebo', 'brier'), uR6 = vv('uncertain', 'brier'), uP6 = vv('placebo_uncertain', 'brier');
+    const uR6 = vv('uncertain', 'brier'), uP6 = vv('placebo_uncertain', 'brier');
     const long = (S.reward_es || []).find(r => r.sample === '> 180 days left' && r.outcome === 'brier' && r.term === 'post');
     const cost = M.reward_usd_settled;
-    sectionHead(main, '6. What this shows');
+    sectionHead(main, '8. What this shows');
     const s1 = card('Summary', null, null, 'card wide');
     s1.append(h('ul', { class: 'plain' },
-      h('li', {}, `Rewards make markets easier to trade. In the first week after a market’s first reward, its spread falls ${Math.abs(sp0.coef - spPre).toFixed(1)}–${Math.abs(sp0.coef).toFixed(1)}¢ more than in comparable never-rewarded markets, and ${Math.min(Math.abs(spEx.coef), Math.abs(spPost.coef)).toFixed(1)}–${Math.max(Math.abs(spEx.coef), Math.abs(spPost.coef)).toFixed(1)}¢ on average over 8 weeks (the range depends on which weeks before the reward it is measured from). It is ${(tr0.coef * 100).toFixed(0)} percentage points more likely to trade in the first week, falling to ${(tr2.coef * 100).toFixed(0)} points by week 2. This holds in every version, and the placebo shows nothing.`),
-      h('li', {}, `Accuracy: on average, rewarded markets’ Brier score falls ${Math.abs(bp.coef).toFixed(3)} more than their controls’ over 8 weeks (p ${pfmt(pval(bp.t))}). But the gain comes mostly from a few markets that started far from the outcome, and rewarded markets start out much less certain than their controls. Among markets that start out uncertain, those with fake reward dates also improve later on (${uP6 ? num(uP6.coef, 3) : '–'} vs ${uR6 ? num(uR6.coef, 3) : '–'} with real rewards). So we cannot yet separate a reward effect on accuracy from uncertain markets converging toward the answer.`),
-      cost ? h('li', {}, `Cost: Kalshi posted about ${usd(cost.mean)} per rewarded market (median ${usd(cost.median)}) in programs that started in the 8 weeks after the first reward, for the ${fi(cost.markets)} settled markets behind the Brier estimate. Even if the whole Brier gain were due to the reward, that is about ${usd(cost.mean / (Math.abs(bp.coef) * 100))} per market per 0.01 of Brier improvement (dollars posted, not paid).`) : null,
+      h('li', {}, `Rewards make markets easier to trade. In the first week after a market’s first reward, its spread falls ${Math.abs(sp0.coef - spPre).toFixed(1)}–${Math.abs(sp0.coef).toFixed(1)}¢ more than in comparable never-rewarded markets, and ${Math.min(Math.abs(spEx.coef), Math.abs(spPost.coef)).toFixed(1)}–${Math.max(Math.abs(spEx.coef), Math.abs(spPost.coef)).toFixed(1)}¢ on average over 8 weeks (the range depends on which weeks before the reward it is measured from). It is ${(tr0.coef * 100).toFixed(0)} percentage points more likely to trade in the first week, falling to ${(tr2.coef * 100).toFixed(0)} points by week 2. This holds in every version of the main comparison and in synthetic DiD, and the main placebo shows nothing${sd('placebo', 'spread') && sd('main', 'spread') ? ` (in synthetic DiD, fake dates move the spread ${Math.round(100 * Math.abs(sd('placebo', 'spread').coef / sd('main', 'spread').coef))}% as much as real rewards: small, but statistically different from zero)` : ''}.`),
+      h('li', {}, `Accuracy: on average, rewarded markets’ Brier score falls ${Math.abs(bp.coef).toFixed(3)} more than their controls’ over 8 weeks (p ${pfmt(pval(bp.t))}). But the gain comes mostly from a few markets that started far from the outcome, and rewarded markets start out much less certain than their controls. Among markets that start out uncertain, those with fake reward dates also improve later on (${uP6 ? num(uP6.coef, 3) : '–'} vs ${uR6 ? num(uR6.coef, 3) : '–'} with real rewards). Synthetic DiD points the same way, more strongly, but on few markets: for uncertain markets, fake dates give about the same Brier drop as real rewards. So we cannot yet separate a reward effect on accuracy from uncertain markets converging toward the answer.`),
+      fw('spread', 'size_groups:post') ? h('li', {}, `Reward size (section 7): larger first rewards go with a larger spread drop${fw('spread', 'size_groups:post_above') ? ` (above-standard rewards: ${Math.abs(fw('spread', 'size_groups:post_above').coef).toFixed(1)}¢ more than the standard amount)` : ''}. Kalshi chooses the size, so this is not a clean test.`) : null,
+      cost ? h('li', {}, `Cost: Kalshi posted about ${usd(cost.mean)} per rewarded market (median ${usd(cost.median)}) in programs starting on the reward day or in the 8 weeks after it, for the ${fi(cost.markets)} settled markets behind the Brier estimate. Even if the whole Brier gain were due to the reward, that is about ${usd(cost.mean / (Math.abs(bp.coef) * 100))} per market per 0.01 of Brier improvement (dollars posted, not paid).`) : null,
       h('li', {}, `Long horizons: only ${long ? fi(long.stacks) : 'a few'} of the ${fi(nSettled)} settled rewarded markets had more than 6 months left when the reward started, too few to say anything about long-horizon markets.`)));
     main.append(h('div', { class: 'grid' }, s1));
   }

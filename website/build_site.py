@@ -152,6 +152,9 @@ for tag in ["price_ffill", "random", "series_matched", "brier_matched", "event_p
     f = RES / f"13_reward_event_study_{tag}.csv"
     if f.exists():
         d = pd.read_csv(f)
+        if tag == "price_ffill":       # main version also split by when the first reward started
+            per = d[d["sample"].str.startswith("started") & (d.term == "post")]
+            versions.append(per.assign(version="period: " + per["sample"]))
         d = d[(d["sample"] == "all") & d.term.isin(["post", "post_ex_w-1"])]
         versions.append(d.assign(version=tag))
 S["reward_es_versions"] = rec(pd.concat(versions)) if versions else []
@@ -163,6 +166,13 @@ for tag in ["uncertain", "placebo_uncertain"]:
         d = pd.read_csv(f)
         unc.append(d[(d["sample"] == "all") & (d.outcome == "brier")].assign(version=tag))
 S["reward_es_uncertain"] = rec(pd.concat(unc)) if unc else []
+# synthetic difference-in-differences (a15): post effect and weekly effects for each version
+sd = []
+for tag in ["", "pre56", "placebo", "uncertain", "placebo_uncertain"]:
+    f = RES / f"15_reward_sdid{'_' + tag if tag else ''}.csv"
+    if f.exists():
+        sd.append(pd.read_csv(f).assign(version=tag or "main"))
+S["reward_sdid"] = rec(pd.concat(sd)) if sd else []
 
 # ---- open markets now -----------------------------------------------------------------------
 om = pd.read_parquet(DATA / "open_markets_enriched.parquet")
