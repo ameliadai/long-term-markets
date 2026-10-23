@@ -18,6 +18,7 @@ polymarket/
   slurm/       batch jobs for the pipeline
   data/, kshape/   local data (not in git)
   results/     analysis outputs (CSV)
+sim/           agent-based market simulation for comparing policies (model.py, run.py, results/)
 website/       static site: index.html, site.js, charts.js, style.css, data/site.json
 environment.yml
 ```
@@ -70,6 +71,13 @@ for s in a01_landscape a02_volume_to_close a03_accuracy a06_trades a08_accuracy_
   KL_DATA=polymarket/kshape KL_RESULTS=polymarket/results python kalshi/scripts/$s.py
 done
 ```
+
+## Simulation
+
+An agent-based model of a Kalshi-style market (informed and noise traders, a market maker,
+information flow) for comparing policies: interest and market-making subsidies, extra noise trading,
+a paid panel of informed traders, and a contract on an intermediate forecast. See
+[`sim/README.md`](sim/README.md); results appear on the website's Simulation tab.
 
 ## Website
 

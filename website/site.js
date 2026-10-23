@@ -36,6 +36,7 @@ function pageOverview(main) {
     ['regressions', 'Regression', `Whether days with more past trading have more accurate prices, in five specifications, by category${PM ? ' and by year the market closed' : ''}.`],
     ['tail', 'Last days', 'Whether the outcome is already known before a market closes, and how much of the data comes from those days.'],
     ['rewards', 'Rewards', PM ? 'What can and can’t be seen about Polymarket’s reward programs.' : 'The programs Kalshi pays for liquidity and trading, which markets get them, and whether rewards make markets easier to trade and more accurate (with a comparison against similar unrewarded markets).'],
+    ['simulation', 'Simulation', 'An agent-based model of a Kalshi market, used to compare policies (interest and market-making subsidies, extra noise trading, a paid panel of informed traders, a forecaster contract).'],
     ['coverage', 'What we have', 'The data available, in plain terms, and what is missing.'],
     ['data', 'Data', 'Dataset sizes and the sample behind each analysis.'],
     ['notes', 'Notes', 'How the regression works: assumptions, fixed effects, and what to be careful of.'],
@@ -810,6 +811,144 @@ function pageRewards(main) {
   }
 }
 
+// ------------------------------------------------------------------ Simulation
+function pageSimulation(main) {
+  const wrap = h('div', { class: 'narrow' }); main.append(wrap); main = wrap;
+  const M = S_ALL.sim;
+  pageHead(main, 'Simulating policies for long-horizon markets', 'An agent-based model of one Kalshi-style yes/no contract, used to compare policies that might make prediction-market prices (Wolfers and Zitzewitz, 2004) more accurate far from resolution. The same for both platforms; code in sim/ in the repository.');
+  if (!M) { main.append(h('p', { class: 'muted' }, 'No simulation results yet: run python sim/run.py, then website/build_site.py.')); return; }
+  const P = M.params, num = (v, d) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+
+  // 1 ── the model
+  const F = src => h('div', { class: 'formula' }, tex(src, true)), T_ = s => tex(s);
+  sectionHead(main, '1. Model', `We simulate N = 2,000 independent markets for one binary contract. Each market lasts T = ${P.T} days, divided into s = ${P.slots} trading slots per day.`);
+  const m1 = card('1.1 Outcome and information', null, null, 'card wide');
+  m1.append(
+    h('p', {}, 'A contract pays $1 if the event occurs (', T_('Y = 1'), '). Each market draws a prior log-odds and an outcome:'),
+    F(String.raw`\ell_0 \sim N(0, 1), \qquad Y \mid \ell_0 \sim \text{Bernoulli}\big(\sigma(\ell_0)\big), \qquad \sigma(x) = \frac{1}{1 + e^{-x}}`),
+    h('p', {}, 'Information arrives as signals: each is a number ', T_('z'), ' that an agent observes (for example a poll reading or a data release), with higher values pointing to ', T_('Y = 1'), ':'),
+    F(String.raw`z = \mu\,(2Y - 1) + \varepsilon, \qquad \varepsilon \sim N(0,\ 1/\rho), \qquad k \equiv \mu^2 \rho`),
+    h('p', {}, 'where ', T_(String.raw`\mu > 0`), ' is how far the signal’s mean moves with the outcome (', T_(String.raw`+\mu`), ' if ', T_('Y = 1'), ', ', T_(String.raw`-\mu`), ' if ', T_('Y = 0'), ') and ', T_(String.raw`\rho`), ' is the precision of the noise. Only the signal-to-noise ratio ', T_('k'), ' matters: it is the number of units of information the signal carries, and the model sets ', T_('k'), ' directly. The signal’s log-likelihood ratio is'),
+    F(String.raw`\lambda \equiv \ln\frac{f(z \mid Y = 1)}{f(z \mid Y = 0)} = 2 \mu \rho\, z, \qquad \text{so} \qquad \lambda \mid Y \sim N\big(2k\,(2Y - 1),\ 4k\big)`),
+    h('p', {}, 'Bayesian updating adds ', T_(String.raw`\lambda`), ' to the log-odds, and independent signals worth ', T_('k_1'), ' and ', T_('k_2'), ' together are worth ', T_('k_1 + k_2'), ' units. Information per day is'),
+    F(String.raw`\kappa_t = K\,\frac{\big((t+1)/T\big)^{\gamma}}{\sum_{u=0}^{T-1} \big((u+1)/T\big)^{\gamma}}, \qquad \kappa^{\text{pub}}_t = \varphi\,\kappa_t, \qquad \kappa^{\text{priv}}_t = (1 - \varphi)\,\kappa_t`),
+    h('p', {}, T_('K'), ' is total information, ', T_(String.raw`\varphi`), ' the public share and ', T_(String.raw`\gamma`), ' the timing (', T_(String.raw`\gamma = 0`), ': even; larger ', T_(String.raw`\gamma`), ': concentrated near resolution). Public news ', T_(String.raw`\lambda^{\text{pub}}_t`), ' (with ', T_(String.raw`k = \kappa^{\text{pub}}_t`), ') is observed by all, giving public log-odds ', T_(String.raw`\ell^{\text{pub}}_t = \ell_0 + \sum_{u \le t} \lambda^{\text{pub}}_u`), '. Each informed trader also holds private signals worth ', T_(String.raw`H_t = \sum_{u \le t} \kappa^{\text{priv}}_u`), ' units, i.e. private log-odds ', T_(String.raw`S \mid Y \sim N\big(2H_t(2Y-1),\ 4H_t\big)`), '. Each arriving informed trader draws such a signal independently (a simplification: the private information available grows with the number of arrivals).'));
+  const m2 = card('1.2 Traders', null, null, 'card wide');
+  m2.append(
+    h('p', {}, 'In each slot an informed trader arrives with probability ', T_(String.raw`\alpha`), ', a noise trader with probability ', T_(String.raw`\beta`), ', and otherwise no one. An informed trader with belief ', T_(String.raw`p = \sigma(\ell^{\text{pub}}_t + S)`), ' and discount factor ', T_(String.raw`D_t = e^{-r\tau_t}`), ' (the value today of $1 paid at resolution), where ', T_('r'), ` is the trader’s annual discount rate (${pct(P.informed_discount)}: the return given up by tying money up in the contract) and `, T_(String.raw`\tau_t = (T - t)/365`), ' is the time to resolution in years, faces ask ', T_('a_t'), ', bid ', T_('b_t'), ' and fee ', T_('c'), ':'),
+    F(String.raw`\text{buy YES if } D_t\,p > a_t + c, \qquad \text{sell YES (buy NO) if } D_t\,(1 - p) > 1 - b_t + c, \qquad \text{otherwise abstain.}`),
+    h('p', {}, 'Discounting captures the cost of capital locked up until resolution, which biases long-dated prediction-market prices (Page and Clemen, 2013). Noise traders buy or sell with probability ', T_(String.raw`\tfrac12`), ' each, regardless of price, as in Kyle (1985) and Glosten and Milgrom (1985).'),
+    h('p', {}, h('b', {}, 'Research effort (extension). '), 'Each day a representative informed trader can buy ', T_('e'), ' more units of private information at cost ', T_(String.raw`c_e`), '. It does so if'),
+    F(String.raw`\big[V(H_t + e) - V(H_t)\big]\; n_t > c_e, \qquad n_t = \frac{s\,\alpha\,(T - t)}{N_I}`),
+    h('p', {}, 'where ', T_('V(H)'), ' is the expected trading profit per arrival at current quotes for a trader holding ', T_('H'), ' units, and ', T_('n_t'), ' the trader’s expected number of future arrivals (', T_('N_I'), ' informed traders). Purchased information is kept until resolution. Costly information acquisition follows Grossman and Stiglitz (1980).'));
+  const m3 = card('1.3 Market maker', null, null, 'card wide');
+  m3.append(
+    h('p', {}, 'A competitive, risk-neutral market maker with log-odds ', T_(String.raw`\ell^{\text{MM}}_t`), ' quotes the ask and bid that solve (Glosten and Milgrom, 1985)'),
+    F(String.raw`a_t = \Pr(Y = 1 \mid \text{buy at } a_t) + m_t - q, \qquad b_t = \Pr(Y = 1 \mid \text{sell at } b_t) - m_t + q`),
+    F(String.raw`\Pr(Y = 1 \mid \text{buy}) = \sigma\!\Big(\ell^{\text{MM}}_t + \ln\frac{\Pr(\text{buy} \mid Y = 1)}{\Pr(\text{buy} \mid Y = 0)}\Big), \qquad \Pr(\text{buy} \mid Y) = \alpha\,\Pr\!\big(D_t\,\sigma(\ell^{\text{pub}}_t + S) > a_t + c \mid Y\big) + \frac{\beta}{2}`),
+    h('p', {}, 'and analogously for a sell. ', T_(String.raw`m_t = \theta\,(1 - e^{-r_{\text{MM}}\tau_t})`), ' compensates the capital locked up until resolution (in the spirit of the dealer cost components in Ho and Stoll, 1981), and ', T_('q'), ' is a per-contract subsidy (zero in the baseline). Each equation is solved by bisection; quotes lie in [0.005, 0.995] with a minimum spread of 1¢. Public news adds ', T_(String.raw`\lambda^{\text{pub}}_t`), ' to ', T_(String.raw`\ell^{\text{MM}}`), '; after a trade the market maker applies Bayes’ rule:'),
+    F(String.raw`\ell^{\text{MM}} \leftarrow \ell^{\text{MM}} + \ln\frac{\Pr(\text{obs} \mid Y = 1)}{\Pr(\text{obs} \mid Y = 0)}, \qquad \text{obs} \in \{\text{buy}, \text{sell}\}`),
+    h('p', {}, 'We assume the market maker learns only from trades. A fully Bayesian market maker would also learn from slots without a trade (Easley and O’Hara, 1992); section 5 reports that version.'));
+  const m4 = card('1.4 Simulation procedure', null, null, 'card wide');
+  m4.append(h('ol', { class: 'plain' },
+    h('li', {}, 'Draw ', T_(String.raw`\ell_0`), ' and ', T_('Y'), ' for each of the ', T_('N'), ' markets.'),
+    h('li', {}, 'For each day ', T_(String.raw`t = 0, \dots, T-1`), ': (a) public news ', T_(String.raw`\lambda^{\text{pub}}_t`), ' is revealed, private information grows by ', T_(String.raw`\kappa^{\text{priv}}_t`), ', and informed traders make the research decision; (b) in each of the ', T_('s'), ' slots, the market maker posts ', T_('(a_t, b_t)'), ', a trader may arrive and trade, and the market maker updates; (c) the mid price ', T_('(a_t + b_t)/2'), ', the spread and whether any trade occurred are recorded.'),
+    h('li', {}, 'At ', T_('T'), ' the outcome is revealed. Accuracy is the Brier (1950) score ', T_(String.raw`(\text{mid} - Y)^2`), ', averaged over markets, by days to close.'),
+    h('li', {}, 'Each policy is simulated on the same markets (same ', T_(String.raw`\ell_0`), ' and ', T_('Y'), '); its effect is the paired difference in Brier score from the baseline.')));
+  const SYM = [['T', 'T', 'Days to resolution'], ['slots', 's', 'Trading slots per day'], ['info_total', 'K', 'Total information (units)'], ['public_share', String.raw`\varphi`, 'Public share of information'], ['info_shape', String.raw`\gamma`, 'Timing of information'], ['informed_rate', String.raw`\alpha`, 'Informed arrival probability per slot'], ['noise_rate', String.raw`\beta`, 'Noise arrival probability per slot'], ['informed_discount', 'r', 'Informed traders’ discount rate (per year)'], ['fee', 'c', 'Trading fee ($ per contract)'], ['mm_discount', String.raw`r_{\text{MM}}`, 'Market maker’s cost of capital (per year)'], ['mm_capital', String.raw`\theta`, 'Share of the contract the market maker funds'], ['informed_pool', 'N_I', 'Number of informed traders']];
+  m4.append(h('details', {}, h('summary', {}, 'Show the baseline parameters'),
+    simpleTable([{ key: 0, label: 'Symbol' }, { key: 1, label: 'Meaning' }, { key: 2, label: 'Value', num: true }], SYM.map(([k, sym, lab]) => [T_(sym), lab, String(P[k])]))));
+  main.append(h('div', { class: 'grid' }, m1), h('div', { class: 'grid', style: 'margin-top:16px' }, m2), h('div', { class: 'grid', style: 'margin-top:16px' }, m3), h('div', { class: 'grid', style: 'margin-top:16px' }, m4));
+
+  // 2 ── calibration
+  sectionHead(main, '2. Does the baseline look like Kalshi?', 'Parameters were chosen so that, with no policy, the model roughly matches Kalshi.');
+  const c1 = card('Model vs Kalshi', 'By days to close. Model: on that day. Kalshi: Brier from markets open a year or more (Accuracy tab); share of days with a trade and median spread from the Rewards tab’s daily panel (markets listed 60 or more days ahead that traded at least once, March–August 2026, without sports and crypto, excluding each market’s last two days), over the days between each horizon and the next shorter one (e.g. 181–365 days before close for 365).', null, 'card wide');
+  c1.append(simpleTable([{ key: 0, label: 'Days to close', num: true }, { key: 1, label: 'Brier: model', num: true }, { key: 2, label: 'Brier: Kalshi', num: true }, { key: 3, label: 'Days with a trade: model', num: true }, { key: 4, label: 'Kalshi', num: true }, { key: 5, label: 'Spread: model', num: true }, { key: 6, label: 'Kalshi', num: true }],
+    M.calibration.map(r => [r.days_to_close, r.model_brier.toFixed(3), r.brier.toFixed(2), pct(r.model_traded), pct(r.traded), cents(r.model_spread), cents(r.spread)])));
+  const c7 = M.calibration.find(r => r.days_to_close === 7);
+  c1.append(h('p', { class: 'note' }, `The model’s spreads are wider than Kalshi’s 180 days or more before close, its Brier score in the final week is higher (${c7.model_brier.toFixed(3)} vs ${c7.brier.toFixed(2)}), and it does not reproduce the rise in trading in the final week.`));
+  main.append(h('div', { class: 'grid' }, c1));
+
+  // 3 ── policies
+  sectionHead(main, '3. Policies', 'Each policy is switched on at several strengths. Costs are dollars per market, where every trade is one $1 contract. Gains are the fall in Brier score against the same simulated markets without the policy (positive = more accurate).');
+  const HOW = {
+    interest: [h('span', {}, T_(String.raw`r \to \max(r - \iota, 0),\ r_{\text{MM}} \to \max(r_{\text{MM}} - \iota, 0)`), ' (interest at rate ', T_(String.raw`\iota`), ' on collateral)'), h('span', {}, T_(String.raw`\iota\,\tau_t`), ' per contract traded')],
+    mm: [h('span', {}, 'per-contract subsidy ', T_('q > 0'), ' to the market maker (cf. subsidised automated market makers, Hanson, 2007)'), h('span', {}, T_('q'), ' per contract traded')],
+    noise: [h('span', {}, T_(String.raw`\beta \to \beta + \beta_x`), ' (our own random trades)'), h('span', {}, 'losses of those trades: ', T_('a_t - Y'), ' per buy, ', T_('Y - b_t'), ' per sell')],
+    panel: [h('span', {}, 'extra informed arrivals with probability ', T_(String.raw`\alpha_p`), ', same information, but ', T_('D_t = 1'), ' and ', T_('c = 0'), ' (we cover their fee and capital cost)'), h('span', {}, T_(String.raw`c + r\,\tau_t`), ' per panel trade (an upper bound: it charges capital cost on $1, while a panelist puts up only the price)')],
+    forecast: [h('span', {}, 'a second contract that settles at ', T_(String.raw`t_F = T - 183`), ' at a panel’s published probability ', T_('F'), ' (YES pays ', T_('F'), ', NO pays ', T_('1 - F'), '), e.g. of superforecasters (Mellers et al., 2014) or LLMs. The panel does not trade; it sees the public information at ', T_('t_F'), ' plus its own research worth ', T_('k_F'), ' units: ', T_(String.raw`F = \sigma(\ell^{\text{pub}}_{t_F} + \lambda_F)`), '. Until ', T_('t_F'), ' it trades alongside the main contract (same market maker belief, arrivals at the same rates); a trader with belief ', T_('p'), ' values it at ', T_(String.raw`F_0 + (F_1 - F_0)\,p`), ', where ', T_(String.raw`F_y = E[F \mid Y = y, \text{public information}]`), ', discounted only to ', T_('t_F'), '. At ', T_('t_F'), ' the panel’s research becomes public.'), h('span', {}, T_(String.raw`5\,k_F`), ' for the panel’s fees (assumed)')],
+  };
+  const p1 = card('The five policies', 'Changes to the baseline model, and their cost per market (every trade is one $1 contract).', null, 'card wide');
+  p1.append(simpleTable([{ key: 0, label: 'Policy' }, { key: 1, label: 'Change to the model' }, { key: 2, label: 'Cost' }], [...new Set(M.policies.map(r => r.policy))].map(k => [h('b', {}, M.policies.find(r => r.policy === k).label), HOW[k][0], HOW[k][1]])));
+  main.append(h('div', { class: 'grid' }, p1));
+  const B = (M.budget || []).filter(r => r.budget === 1);
+  if (B.length) {
+    const p2 = card('Brier gain at the same cost: $1 per market', 'Interpolated along each policy’s strengths.', null, 'card wide');
+    C.vbar(p2, B.map(r => r.label), [{ name: 'Over the market’s life', values: B.map(r => r.gain_life) }, { name: '180 days before close', values: B.map(r => r.gain_180) }, { name: '90 days before close', values: B.map(r => r.gain_90) }], { fmtV: v => v.toFixed(3), H: 240, W: 900 });
+    p2.append(simpleTable([{ key: 0, label: 'Policy' }, { key: 1, label: 'Over the market’s life', num: true }, { key: 2, label: '180 days before close', num: true }, { key: 3, label: '90 days before close', num: true }],
+      B.map(r => [r.label, num(r.gain_life, 4), num(r.gain_180, 4), num(r.gain_90, 4)])));
+    const best = [...B].sort((a, b) => b.gain_life - a.gain_life);
+    p2.append(h('ul', { class: 'plain' },
+      h('li', {}, `${best[0].label} and the ${best[1].label.toLowerCase()} improve accuracy the most per dollar. The forecaster contract helps mostly from the day the forecast is published; trading it before then does not improve accuracy, so the gain comes from publishing the panel’s research.`),
+      h('li', {}, 'Interest and market-making subsidies help only a little: they are paid on every trade, including noise traders’ trades, so much of the money does not buy information.'),
+      h('li', {}, 'Adding our own noise trades makes prices slightly less accurate: the market maker learns less from each trade. (Noise traders here ignore prices, and the number of informed traders is fixed, so extra noise cannot draw in more informed traders.)')));
+    main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, p2));
+  }
+  const p3 = card('All strengths', null, null, 'card wide');
+  p3.append(h('details', {}, h('summary', {}, 'Show the table'),
+    simpleTable([{ key: 0, label: 'Policy' }, { key: 1, label: 'Setting' }, { key: 2, label: 'Cost per market', num: true }, { key: 3, label: 'Gain: life', num: true }, { key: 4, label: '180 days', num: true }, { key: 5, label: '90 days', num: true }, { key: 6, label: '30 days', num: true }],
+      M.policies.map(r => [r.label, r.setting, '$' + f2(r.cost), h('span', {}, num(r.gain_life, 4), h('span', { class: 'muted small' }, ` (${r.se_life.toFixed(4)})`)), num(r.gain_180, 4), num(r.gain_90, 4), num(r.gain_30, 4)])),
+    h('p', { class: 'note' }, 'Standard errors in brackets (paired over the same 2,000 simulated markets).')));
+  main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, p3));
+
+  // 4 ── information flow and effort
+  const PA = M.paths || [], path = s => PA.filter(r => r.scenario === s).sort((a, b) => b.days_to_close - a.days_to_close);
+  if (PA.length) {
+    sectionHead(main, '4. Information flow and research effort', 'Baseline accuracy by days to close, with no policy.');
+    const xs = path('base').map(r => r.days_to_close);
+    const i1 = card('When information arrives', 'Brier score of the price, by days to close.');
+    C.line(i1, xs, [{ name: 'Evenly over time', values: path('info_even').map(r => r.brier) }, { name: 'Calibrated', values: path('base').map(r => r.brier) }, { name: 'Mostly near resolution', values: path('info_late').map(r => r.brier) }], { fmtV: v => v.toFixed(2), fmtX: x => String(x), H: 200 });
+    i1.append(h('p', { class: 'note' }, 'When most information arrives late, prices stay near the prior for months.'));
+    const e1 = card('Traders can pay for research', 'Brier score of the price, by days to close.');
+    C.line(e1, xs, [{ name: 'No research', values: path('base').map(r => r.brier) }, { name: 'Research available', values: path('effort').map(r => r.brier) }], { fmtV: v => v.toFixed(2), fmtX: x => String(x), H: 200 });
+    const at = (s, d) => path(s).find(r => r.days_to_close === d)?.brier;
+    const EF = M.effort || {};
+    e1.append(h('p', { class: 'note' }, 'Research buys ', T_(`e = ${EF.effort_info}`), ' units per day at ', T_(`c_e = \\$${EF.effort_cost}`), `. With research available, Brier 180 days before close is ${at('effort', 180)?.toFixed(3)} instead of ${at('base', 180)?.toFixed(3)}.`));
+    main.append(h('div', { class: 'grid' }, i1, e1));
+  }
+
+  // 5 ── caveats
+  const SN = M.sensitivity || [];
+  sectionHead(main, '5. Caveats');
+  const k1 = h('div', { class: 'card wide' });
+  k1.append(h('ul', { class: 'plain' },
+    h('li', {}, 'A stylized model with rough calibration: useful for comparing policies within the model, not for predicting their exact effects on Kalshi.'),
+    h('li', {}, 'The market maker learns only from trades. This pulls its prices toward 50%, most visibly close to resolution. A fully Bayesian market maker that also learns from slots without a trade gives better-calibrated prices, and the interest and market-making subsidies then help even less' + (SN.length ? ` (at the third strength: ${SN.filter(r => ['interest', 'mm'].includes(r.policy)).map(r => `${r.label.toLowerCase()} ${num(r.gain_life, 4)} instead of ${num(r.main_gain_life, 4)}`).join('; ')}); the ranking of policies is the same.` : '.')),
+    h('li', {}, 'Traders decide trade by trade: each informed arrival trades at most one contract and holds it to resolution, with no waiting, resale or position sizing.'),
+    h('li', {}, 'Each arriving informed trader draws fresh private information, so paying for more informed trades (the panel) adds information mechanically; with a fixed group of traders who keep their information, the panel’s value would be smaller.'),
+    h('li', {}, 'Costs assume every trade is one $1 contract. Per-trade policies (interest, market-making) scale with trading volume, about 92% of which is noise trading here; the forecaster contract’s cost does not.'),
+    h('li', {}, 'The cost of the forecaster contract is an assumption. The model takes the panel’s forecast to be its honest Bayesian estimate; the proposal secures this by keeping panelists out of the market and paying them a fixed fee plus a bonus scored on the real outcome.'),
+    h('li', {}, 'Each policy runs over 2,000 simulated markets.')));
+  main.append(h('div', { class: 'grid' }, k1));
+
+  // 6 ── references
+  sectionHead(main, '6. References');
+  const r1 = card('References', null, null, 'card wide');
+  r1.append(h('ul', { class: 'plain' }, [
+    'Brier, G. W. (1950). Verification of forecasts expressed in terms of probability. Monthly Weather Review, 78(1), 1–3.',
+    'Easley, D., and O’Hara, M. (1992). Time and the process of security price adjustment. Journal of Finance, 47(2), 577–605.',
+    'Glosten, L. R., and Milgrom, P. R. (1985). Bid, ask and transaction prices in a specialist market with heterogeneously informed traders. Journal of Financial Economics, 14(1), 71–100.',
+    'Grossman, S. J., and Stiglitz, J. E. (1980). On the impossibility of informationally efficient markets. American Economic Review, 70(3), 393–408.',
+    'Hanson, R. (2007). Logarithmic market scoring rules for modular combinatorial information aggregation. Journal of Prediction Markets, 1(1), 3–15.',
+    'Ho, T., and Stoll, H. R. (1981). Optimal dealer pricing under transactions and return uncertainty. Journal of Financial Economics, 9(1), 47–73.',
+    'Kyle, A. S. (1985). Continuous auctions and insider trading. Econometrica, 53(6), 1315–1335.',
+    'Mellers, B., et al. (2014). Psychological strategies for winning a geopolitical forecasting tournament. Psychological Science, 25(5), 1106–1115.',
+    'Page, L., and Clemen, R. T. (2013). Do prediction markets produce well-calibrated probability forecasts? Economic Journal, 123(568), 491–513.',
+    'Wolfers, J., and Zitzewitz, E. (2004). Prediction markets. Journal of Economic Perspectives, 18(2), 107–126.',
+  ].map(t => h('li', {}, t))));
+  main.append(h('div', { class: 'grid' }, r1));
+}
+
 // ------------------------------------------------------------------ What we have
 function pageCoverage(main) {
   if (isPM()) return pageCoveragePM(main);
@@ -978,7 +1117,7 @@ function route() {
   ps.replaceChildren(...[['kalshi', 'Kalshi'], ['polymarket', 'Polymarket']].map(([k, t]) => h('button', { class: k === PLAT ? 'on' : '', disabled: k === 'polymarket' && !S_ALL.pm ? '' : null, onclick: () => { PLAT = k; try { localStorage.setItem('plat', k); } catch (e) { } route(); } }, t)));
   $('#hdr-note').textContent = isPM() ? `data to ${S.inventory.price_last} · built ${S_ALL.built_at.slice(0, 10)}` : `data to 21 Sep 2026 · built ${S_ALL.built_at.slice(0, 10)}`;
   const main = $('#main'); main.replaceChildren(); window.scrollTo(0, 0);
-  const P = { overview: pageOverview, horizons: pageHorizons, accuracy: pageAccuracy, regressions: pageRegressions, tail: pageTail, rewards: pageRewards, coverage: pageCoverage, data: pageData, notes: pageNotes };
+  const P = { overview: pageOverview, horizons: pageHorizons, accuracy: pageAccuracy, regressions: pageRegressions, tail: pageTail, rewards: pageRewards, simulation: pageSimulation, coverage: pageCoverage, data: pageData, notes: pageNotes };
   try { (P[path] || pageOverview)(main); } catch (e) { main.append(h('pre', {}, String(e.stack || e))); }
 }
 fetch('data/site.json').then(r => r.json()).then(j => { S_ALL = j; window.addEventListener('hashchange', route); route(); }).catch(e => { $('#main').replaceChildren(h('pre', {}, 'Could not load data/site.json. Run: python website/build_site.py\n' + e)); });

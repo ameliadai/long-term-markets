@@ -237,6 +237,21 @@ if (PM_SITE / "11_resolution_timing.csv").exists():
     }
     S["pm"] = P
 
+# ---- market simulation (sim/) ----------------------------------------------------------------
+SIM = ROOT / "sim"
+if (SIM / "results" / "policies.csv").exists():
+    import dataclasses
+    import sys
+    sys.path.insert(0, str(SIM))
+    from model import Params
+    from run import EXTRA
+    S["sim"] = {k: rec(pd.read_csv(SIM / "results" / f"{k}.csv"))
+                for k in ["calibration", "policies", "budget", "paths", "sensitivity"] if (SIM / "results" / f"{k}.csv").exists()}
+    S["sim"]["params"] = dataclasses.asdict(Params())
+    S["sim"]["paths"] = [r for r in S["sim"].get("paths", []) if r["scenario"] in ("base", "info_even", "info_late", "effort")]
+    S["sim"]["effort"] = EXTRA["effort"]
+
+
 def clean(o):
     """NaN/inf -> None anywhere in the structure (JSON has no NaN)."""
     if isinstance(o, dict):
