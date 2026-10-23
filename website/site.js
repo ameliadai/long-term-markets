@@ -1115,7 +1115,6 @@ function route() {
   document.querySelectorAll('header nav a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#/' + path));
   const ps = $('#plat-seg');
   ps.replaceChildren(...[['kalshi', 'Kalshi'], ['polymarket', 'Polymarket']].map(([k, t]) => h('button', { class: k === PLAT ? 'on' : '', disabled: k === 'polymarket' && !S_ALL.pm ? '' : null, onclick: () => { PLAT = k; try { localStorage.setItem('plat', k); } catch (e) { } route(); } }, t)));
-  $('#hdr-note').textContent = isPM() ? `data to ${S.inventory.price_last} · built ${S_ALL.built_at.slice(0, 10)}` : `data to 21 Sep 2026 · built ${S_ALL.built_at.slice(0, 10)}`;
   const main = $('#main'); main.replaceChildren(); window.scrollTo(0, 0);
   const P = { overview: pageOverview, horizons: pageHorizons, accuracy: pageAccuracy, regressions: pageRegressions, tail: pageTail, rewards: pageRewards, simulation: pageSimulation, coverage: pageCoverage, data: pageData, notes: pageNotes };
   try { (P[path] || pageOverview)(main); } catch (e) { main.append(h('pre', {}, String(e.stack || e))); }
