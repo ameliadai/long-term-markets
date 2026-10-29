@@ -250,6 +250,12 @@ if (SIM / "results" / "policies.csv").exists():
     S["sim"]["params"] = dataclasses.asdict(Params())
     S["sim"]["paths"] = [r for r in S["sim"].get("paths", []) if r["scenario"] in ("base", "info_even", "info_late", "effort")]
     S["sim"]["effort"] = EXTRA["effort"]
+    from run import POLICIES
+    for k in ["calibration", "runs", "budget", "checks", "data", "roots"]:
+        f = SIM / "results" / f"entry_{k}.csv"
+        if f.exists():
+            S["sim"][f"entry_{k}"] = rec(pd.read_csv(f))
+    S["sim"]["entry_noise3"] = POLICIES["noise"][1][2]["extra_noise_rate"]
 
 
 def clean(o):

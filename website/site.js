@@ -1,7 +1,7 @@
 const $ = (s, r = document) => r.querySelector(s);
 const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const k in attrs) { if (attrs[k] == null || attrs[k] === false) continue; if (k === 'class') e.className = attrs[k]; else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]); else e.setAttribute(k, attrs[k]); } for (const k of kids.flat()) if (k != null) e.appendChild(typeof k === 'string' || typeof k === 'number' ? document.createTextNode(k) : k); return e; };
 const fi = v => v == null ? '–' : Math.round(v).toLocaleString();
-const f2 = v => v == null ? '–' : (+v).toFixed(2), f3 = v => v == null ? '–' : (+v).toFixed(3);
+const f2 = v => v == null ? '–' : (+v).toFixed(2), f3 = v => v == null ? '–' : (+v).toFixed(3), f4 = v => v == null ? '–' : (+v).toFixed(4);
 const pct = (v, d = 0) => v == null ? '–' : (v * 100).toFixed(d) + '%';
 const cents = v => v == null ? '–' : (v * 100).toFixed(1).replace(/\.0$/, '') + '¢';
 const usd = v => v == null ? '–' : v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'K' : '$' + (+v).toFixed(v < 10 ? 2 : 0);
@@ -848,7 +848,7 @@ function pageSimulation(main) {
     F(String.raw`\Pr(Y = 1 \mid \text{buy}) = \sigma\!\Big(\ell^{\text{MM}}_t + \ln\frac{\Pr(\text{buy} \mid Y = 1)}{\Pr(\text{buy} \mid Y = 0)}\Big), \qquad \Pr(\text{buy} \mid Y) = \alpha\,\Pr\!\big(D_t\,\sigma(\ell^{\text{pub}}_t + S) > a_t + c \mid Y\big) + \frac{\beta}{2}`),
     h('p', {}, 'and analogously for a sell. ', T_(String.raw`m_t = \theta\,(1 - e^{-r_{\text{MM}}\tau_t})`), ' compensates the capital locked up until resolution (in the spirit of the dealer cost components in Ho and Stoll, 1981), and ', T_('q'), ' is a per-contract subsidy (zero in the baseline). Each equation is solved by bisection; quotes lie in [0.005, 0.995] with a minimum spread of 1¢. Public news adds ', T_(String.raw`\lambda^{\text{pub}}_t`), ' to ', T_(String.raw`\ell^{\text{MM}}`), '; after a trade the market maker applies Bayes’ rule:'),
     F(String.raw`\ell^{\text{MM}} \leftarrow \ell^{\text{MM}} + \ln\frac{\Pr(\text{obs} \mid Y = 1)}{\Pr(\text{obs} \mid Y = 0)}, \qquad \text{obs} \in \{\text{buy}, \text{sell}\}`),
-    h('p', {}, 'We assume the market maker learns only from trades. A fully Bayesian market maker would also learn from slots without a trade (Easley and O’Hara, 1992); section 5 reports that version.'));
+    h('p', {}, 'We assume the market maker learns only from trades. A fully Bayesian market maker would also learn from slots without a trade (Easley and O’Hara, 1992), using the same update with obs = no trade and ', T_(String.raw`\Pr(\text{no trade} \mid Y) = 1 - \Pr(\text{buy} \mid Y) - \Pr(\text{sell} \mid Y)`), '. A slot without a trade is informative because informed traders buy more often when ', T_('Y = 1'), ' and sell more often when ', T_('Y = 0'), ', so the chance that nobody trades differs between the two outcomes; after such a slot the market maker moves its belief toward the outcome under which no trade was more likely. Section 6 reports that version.'));
   const m4 = card('1.4 Simulation procedure', null, null, 'card wide');
   m4.append(h('ol', { class: 'plain' },
     h('li', {}, 'Draw ', T_(String.raw`\ell_0`), ' and ', T_('Y'), ' for each of the ', T_('N'), ' markets.'),
@@ -891,7 +891,7 @@ function pageSimulation(main) {
     p2.append(h('ul', { class: 'plain' },
       h('li', {}, `${best[0].label} and the ${best[1].label.toLowerCase()} improve accuracy the most per dollar. The forecaster contract helps mostly from the day the forecast is published; trading it before then does not improve accuracy, so the gain comes from publishing the panel’s research.`),
       h('li', {}, 'Interest and market-making subsidies help only a little: they are paid on every trade, including noise traders’ trades, so much of the money does not buy information.'),
-      h('li', {}, 'Adding our own noise trades makes prices slightly less accurate: the market maker learns less from each trade. (Noise traders here ignore prices, and the number of informed traders is fixed, so extra noise cannot draw in more informed traders.)')));
+      h('li', {}, 'Adding our own noise trades makes prices slightly less accurate: the market maker learns less from each trade. (Noise traders here ignore prices, and the number of informed traders is fixed, so extra noise cannot draw in more informed traders; section 5 relaxes this.)')));
     main.append(h('div', { class: 'grid', style: 'margin-top:16px' }, p2));
   }
   const p3 = card('All strengths', null, null, 'card wide');
@@ -917,24 +917,149 @@ function pageSimulation(main) {
     main.append(h('div', { class: 'grid' }, i1, e1));
   }
 
-  // 5 ── caveats
+  // 5 ── informed entry that responds to profits
+  if (M.entry_runs && M.entry_runs.length) {
+    const ER = M.entry_runs, EB = M.entry_budget, EC = M.entry_calibration, EK = M.entry_checks, ED = M.entry_data;
+    const EPS = [...new Set(EC.map(r => r.eps))].sort((a, b) => a - b);
+    const SC = { main: 'Fresh information (main)', overlap50: '50% of private information shared', overlap90: '90% shared', effort: 'Fresh information, with research', full: 'Market maker also learns from slots without a trade' };
+    const se = (v, s, d = 4) => h('span', {}, Math.abs(v) < 0.5 * 10 ** -d ? (0).toFixed(d) : num(v, d), h('span', { class: 'muted small' }, ` (${s.toFixed(d)})`));
+    const runsOf = (s, e) => ER.filter(r => r.scenario === s && r.eps === e);
+    const solved = (s, e) => { if (!e) return true; const c = EC.find(r => r.scenario === s && r.eps === e); return Math.max(...runsOf(s, e).map(r => r.entry_gap_max)) < 1e-4 && c && Math.abs(c.alpha_mean / 0.012 - 1) < 0.05; };
+    const bads = EC.filter(r => !solved(r.scenario, r.eps)).map(r => ({ s: r.scenario, e: r.eps, gap: Math.max(...runsOf(r.scenario, r.eps).map(q => q.entry_gap_max)), a: r.alpha_mean }));
+    sectionHead(main, '5. Informed entry that responds to profits', 'Can paying for noise trades attract enough extra informed traders to make prices more accurate, even though each trade then says less? Here the number of informed traders responds to expected profits, as in Admati and Pfleiderer (1988), so the answer can go either way.');
+
+    const e1 = card('5.1 Entry decision', null, null, 'card wide');
+    e1.append(
+      h('p', {}, 'Potential informed traders arrive with probability ', T_(String.raw`\bar\alpha`), ' per slot. Before seeing her private signal, a potential trader compares the expected surplus of the trading opportunity with a recurring attention cost ', T_(String.raw`\psi`), ', paid each time she participates (a one-time setup cost would instead be compared with expected profits over the rest of the market’s life):'),
+      F(String.raw`V_t = E\Big[\max\big\{0,\ D_t\,p - a_t - c,\ D_t\,(1 - p) - (1 - b_t) - c\big\} \,\Big|\, \mathcal I_t\Big], \qquad p = \sigma(\ell^{\text{pub}}_t + S)`),
+      h('p', {}, T_(String.raw`\mathcal I_t`), ' is the public information: traders do not learn from prices or trade history, as in the main model. The expectation is over the signals she might get, with ', T_(String.raw`Y \sim \text{Bernoulli}\big(\sigma(\ell^{\text{pub}}_t)\big)`), ' and ', T_(String.raw`S \mid Y \sim N\big(2H_t(2Y-1),\ 4H_t\big)`), ', and has a closed form. Subtracting ', T_(String.raw`V^0_t`), ', the value of trading on the public information alone, she enters if ', T_(String.raw`V_t - V^0_t > \psi`), ':'),
+      F(String.raw`\alpha_t = \bar\alpha\; G\big(V_t - V^0_t\big), \qquad G(x) = \Pr(\psi < x) = \min\big\{1,\ (x / \bar\psi)^{\eta}\big\} \ \text{ for } x > 0`),
+      h('p', {}, T_('G'), ' is the distribution function of ', T_(String.raw`\psi`), ' across potential traders, a power distribution up to the highest cost ', T_(String.raw`\bar\psi`), '. The entry elasticity ', T_(String.raw`d \ln \alpha_t / d \ln (V_t - V^0_t)`), ' therefore equals ', T_(String.raw`\eta`), ' wherever the surplus is positive and below ', T_(String.raw`\bar\psi`), '; above it every potential trader enters. (A lognormal cost distribution has elasticity ', T_(String.raw`\eta`), ' only near its median. In a first run with one, the surplus varied so much across markets and over time that entry responded about equally at every ', T_(String.raw`\eta`), ' from 0.5 to 4.) ', T_(String.raw`\eta = 0`), ' is the main model, with a fixed ', T_(String.raw`\alpha_t = \alpha`), '. An entrant pays the cost, sees her signal, and then trades or abstains as in section 1.2.'),
+      h('details', {}, h('summary', {}, 'Show the symbols'),
+        simpleTable([{ key: 0, label: 'Symbol' }, { key: 1, label: 'Meaning' }], [
+          ['V_t', 'Expected trading surplus of one opportunity, before seeing the private signal'],
+          ['V^0_t', 'The same, trading on the public information alone'],
+          ['D_t', 'Discount factor: value today of $1 paid at resolution (section 1.2)'],
+          ['p', 'The trader’s belief that the event happens'],
+          ['a_t,\ b_t', 'Ask and bid'],
+          ['c', 'Trading fee'],
+          [String.raw`\ell^{\text{pub}}_t`, 'Public log-odds (section 1.1)'],
+          ['S', 'The trader’s private signal, in log-odds'],
+          ['H_t', 'Units of private information behind the signal (section 1.1)'],
+          [String.raw`\mathcal I_t`, 'Public information available before entering'],
+          [String.raw`\psi`, 'A potential trader’s attention cost per opportunity'],
+          [String.raw`\bar\psi`, 'Highest attention cost (set in 5.4)'],
+          [String.raw`\bar\alpha`, 'Chance a potential informed trader arrives in a slot (set in 5.4)'],
+          ['G', 'Share of potential traders whose cost is below the surplus'],
+          [String.raw`\alpha_t`, 'Chance an informed trader enters in a slot'],
+          [String.raw`\eta`, 'Entry elasticity: % change in entry for a 1% change in the surplus (0, 0.5, 1, 2 or 4)'],
+        ].map(([sym, lab]) => [T_(sym), lab]))));
+
+    const e2 = card('5.2 Solving entry and quotes together', null, null, 'card wide');
+    const okRuns = ER.filter(r => !r.scenario.startsWith('check') && solved(r.scenario, r.eps));
+    const maxIt = Math.max(...okRuns.map(r => r.entry_iters_max)), maxGap = Math.max(...okRuns.map(r => r.entry_gap_max)), maxP = Math.max(...okRuns.map(r => r.arrival_prob_max));
+    const ck = EK.filter(r => /^check_(zero|pool)/.test(r.scenario)), ckm = ck.filter(r => r.reference === 'main'), cko = ck.filter(r => r.reference === 'overlap90');
+    const dzm = Math.max(...ckm.map(r => Math.abs(r.brier_life - r.main_brier_life))), dzo = Math.max(...cko.map(r => Math.abs(r.brier_life - r.main_brier_life)));
+    const gno = cko.filter(r => r.policy === 'noise'), gw = gno.length ? gno[0].main_gain_life : 0, glo = Math.min(...gno.map(r => r.gain_life)), ghi = Math.max(...gno.map(r => r.gain_life)), gse = Math.max(...gno.map(r => r.se_life));
+    const cb = k => cko.find(r => r.policy === 'base' && r.scenario === `check_${k}_overlap90`) || {};
+    const s8 = e => EK.find(r => r.scenario === 'check_slots8' && r.policy === 'noise' && r.eps === e) || {};
+    e2.append(
+      h('p', {}, 'Entry and prices depend on each other. A narrower spread raises the profit informed traders expect, so more of them enter; more informed traders raise the market maker’s expected losses to them, so it widens the spread. In each slot we therefore solve for an entry rate ', T_(String.raw`\alpha_t`), ' and quotes ', T_('a_t, b_t'), ' that are consistent: the quotes are set for entry rate ', T_(String.raw`\alpha_t`), ', and at those quotes entry is exactly ', T_(String.raw`\alpha_t`), '. The market maker knows the entry rule and uses ', T_(String.raw`\alpha_t`), ' when it updates its belief after a trade.'),
+      h('p', {}, 'To find the solution, we measure the mismatch between the entry the quotes would produce and the entry assumed in setting them:'),
+      F(String.raw`\text{gap}(\alpha) = \bar\alpha\, G\big(V_t - V^0_t\big) - \alpha, \qquad \text{with } a_t, b_t \text{ set for entry rate } \alpha`),
+      h('p', {}, 'The gap is non-negative when no one is assumed to enter and negative when everyone is, so a solution exists between the two. We start from the previous slot’s rate and narrow the range (secant steps, then bisection) until the gap is below ', T_('10^{-6}'), '. The solution is usually unique, because more entry widens the spread and lowers the profit on offer. Where traders’ public belief is far from the quotes it may not be unique, so the checks below include other starting points.'),
+      h('ul', { class: 'plain' },
+        h('li', {}, bads.length ? `Did the search finish? Not in ${bads.map(b => `“${SC[b.s]}” at η = ${b.e}`).join(', ')}: in some slots no rate closes the gap (largest gap ${Math.max(...bads.map(b => b.gap)).toFixed(2)}), and calibration missed its target (average entry ${bads.map(b => b.a.toFixed(4)).join(', ')}), so ${bads.length > 1 ? 'these cases are' : 'this case is'} left out below. All other runs finished (largest gap ${maxGap.toExponential(1)}; at most ${maxIt} steps).` : `Did the search finish? Yes, in every slot of every run (largest gap ${maxGap.toExponential(1)}; at most ${maxIt} steps).`),
+        h('li', {}, `Does the starting point matter? Starting from no entry or from full entry, instead of the previous slot’s rate, changes the average Brier score by at most ${dzm.toExponential(0)} with fresh information (η = 2). With 90% shared information at η = 4 it matters: average entry is ${f4(cb('zero').alpha_mean)} or ${f4(cb('pool').alpha_mean)} instead of ${f4(cb('zero').main_alpha_mean)}, the average Brier score changes by up to ${dzo.toExponential(1)}, and the noise subsidy’s life gain (${M.entry_noise3} per slot) is ${num(glo, 4)} to ${num(ghi, 4)} instead of ${num(gw, 4)} (SE ${gse.toFixed(4)}).`),
+        ...(M.entry_roots ? (() => { const RT = M.entry_roots.filter(r => solved(r.scenario, r.eps)), mx = a => a.reduce((x, y) => y.share_other_rate > x.share_other_rate ? y : x), top = mx(RT), es = [...new Set(RT.map(r => r.eps))].sort((a, b) => a - b), eHi = Math.max(...es), low = RT.filter(r => r.eps < eHi), lo = low.length ? mx(low) : null;
+          const sh = r => r.share_other_rate > 0 && r.share_other_rate < 0.0005 ? 'under 0.05%' : pct(r.share_other_rate, 1);
+          return [h('li', {}, `Is there more than one solution? Solving each slot again from no entry and from full entry (no policy, η = ${es.join(', ')}, 300 markets) finds a second solution in up to ${sh(top)} of market-slots at η = ${top.eps} (${SC[top.scenario].toLowerCase()})${lo ? `, and ${lo.share_other_rate > 0 ? `in at most ${sh(lo)}` : 'never'} at η ≤ ${Math.max(...low.map(r => r.eps))}${lo.share_other_rate > 0 && low.filter(r => ['main', 'full', 'effort'].includes(r.scenario)).every(r => r.share_other_rate === 0) ? ' (never with fresh information)' : ''}` : ''}. We keep the solution reached from the previous slot’s rate, so results at η = ${eHi} partly reflect this choice.`)]; })() : []),
+        h('li', {}, `Does the time step matter? Each day has 4 slots with at most one arrival each. The chance of an arrival in a slot is at most ${maxP.toFixed(2)}, so this limit does not cap entry, and noise traders never take an informed trader’s place (each type has its own arrival chance). With 8 slots a day and all rates halved, the noise subsidy’s life gain is ${num(s8(0).gain_life, 4)} with fixed entry and ${num(s8(2).gain_life, 4)} at η = 2, against ${num(s8(0).main_gain_life, 4)} and ${num(s8(2).main_gain_life, 4)} with 4 slots${Math.abs(s8(2).gain_life - s8(2).main_gain_life) > 2 * Math.max(s8(2).se_life, s8(2).main_se_life || 0) ? ', so with responsive entry the result depends on the time step' : ''}.`)));
+
+    const e3 = card('5.3 Overlapping information', null, null, 'card wide');
+    e3.append(
+      h('p', {}, 'In the main model every arriving trader draws fresh private information, which makes extra informed arrivals especially valuable. To test how much this matters, a share ', T_(String.raw`\omega`), ' of the private information is common to all informed traders:'),
+      F(String.raw`S_i = C + E_i, \qquad C \mid Y \sim N\big(2\omega H_t(2Y-1),\ 4\omega H_t\big), \qquad E_i \mid Y \sim N\big(2(1-\omega) H_t(2Y-1),\ 4(1-\omega) H_t\big)`),
+      h('p', {}, T_('C'), ' is shared and ', T_('E_i'), ' is drawn afresh for each arrival, so each trader’s signal is as informative as before. The market maker tracks its belief about ', T_('C'), ' given each outcome, a normal distribution updated after every trade by matching its mean and variance (assumed-density filtering; Minka, 2001), so repeated trades on the same information are not counted as independent evidence. We report ', T_(String.raw`\omega = 0.5`), ' and ', T_(String.raw`\omega = 0.9`), '.'));
+
+    const e4 = card('5.4 Calibration', null, null, 'card wide');
+    const calRow = r => [String(r.eps), r.eps ? r.entry_pool.toFixed(4) : '–', r.eps ? '$' + r.entry_cost.toFixed(4) : '–', r.brier_180.toFixed(3), pct(r.traded_180), cents(r.spread_180), r.alpha_180.toFixed(4), r.alpha_30.toFixed(4)];
+    const calCols = [{ key: 0, label: 'η', num: true }, { key: 1, label: 'Pool ᾱ', num: true }, { key: 2, label: 'Highest cost ψ̄', num: true }, { key: 3, label: 'Brier (180 d)', num: true }, { key: 4, label: 'Days traded (180 d)', num: true }, { key: 5, label: 'Spread (180 d)', num: true }, { key: 6, label: 'Entry rate (180 d)', num: true }, { key: 7, label: 'Entry rate (30 d)', num: true }];
+    e4.append(
+      h('p', {}, 'For each scenario and η > 0, ', T_(String.raw`\bar\alpha`), ' and ', T_(String.raw`\bar\psi`), ' are set so that, with no policy, informed traders arrive at 0.012 per slot on average (the main model’s rate) and ', T_(String.raw`\bar\psi`), ' equals the 99th percentile of the positive surplus, so the elasticity is η in 99% of no-policy market-slots with a positive surplus. These stay fixed across policies, and each policy is compared with its own scenario’s no-policy market. Matching average activity does not tell us how strongly entry responds, so η takes the illustrative values 0, 0.5, 1, 2 and 4, not estimates. With responsive entry, almost no informed traders enter a year before close; entry is highest three to six months before close and falls toward the end, more steeply the larger η. Because only the average rate is matched, the no-policy markets also differ across η in other ways (Brier, spreads and entry by horizon in the table), so a change in the policy effect across η mixes the entry response with a different starting market. In the table, d = days before close.'),
+      simpleTable(calCols, EC.filter(r => r.scenario === 'main').map(calRow)),
+      h('details', {}, h('summary', {}, 'Show all scenarios'), simpleTable([{ key: 8, label: 'Scenario' }, ...calCols], EC.map(r => [...calRow(r), SC[r.scenario]]))));
+
+    const nb = s => EPS.map(e => EB.find(r => r.scenario === s && r.eps === e && r.policy === 'noise')).filter(r => r && r.gain_life != null && solved(s, r.eps));
+    const scs = Object.keys(SC).filter(s => nb(s).length);
+    const cross = s => { const g = nb(s), pos = g.filter(r => r.gain_life >= 0.00005).map(r => r.eps); if (!pos.length) return 'not positive at any η'; return `positive at η = ${pos.join(', ')}${g.some(r => r.gain_life > 2 * r.se_life) ? '' : ', never 2 SE above zero'}`; };
+    const e5 = card('5.5 Main result: the noise subsidy by entry elasticity', 'Brier gain over the market’s life at $1 per market (above 0 = more accurate prices), by the entry elasticity at the median cost, η.', null, 'card wide');
+    C.line(e5, EPS.map(e => `η = ${e}`), [...scs.map(s => ({ name: SC[s], values: EPS.map(e => { const r = nb(s).find(q => q.eps === e); return r ? r.gain_life : null; }) })), { name: 'No effect', values: EPS.map(() => 0), dash: '4 4', color: 'var(--muted)' }], { fmtV: v => v.toFixed(4), H: 260, W: 900 });
+    const hz = k => simpleTable([{ key: 0, label: 'Scenario' }, ...EPS.map((e, i) => ({ key: i + 1, label: `η = ${e}`, num: true }))],
+      scs.map(s => [SC[s], ...EPS.map(e => { const r = nb(s).find(q => q.eps === e); return r && r['gain_' + k] != null ? se(r['gain_' + k], r['se_' + k]) : '–'; })]));
+    e5.append(simpleTable([{ key: 0, label: 'Scenario' }, ...EPS.map((e, i) => ({ key: i + 1, label: `η = ${e}`, num: true })), { key: EPS.length + 1, label: 'Effect' }],
+      scs.map(s => [SC[s], ...EPS.map(e => { const r = nb(s).find(q => q.eps === e); return r ? se(r.gain_life, r.se_life) : '–'; }), cross(s)])),
+      h('details', {}, h('summary', {}, 'Show the gain 180 and 90 days before close'), h('p', { class: 'note' }, '180 days before close'), hz('180'), h('p', { class: 'note' }, '90 days before close'), hz('90')),
+      h('p', { class: 'note' }, 'Standard errors in brackets (paired over the same 2,000 simulated markets). Every scenario’s policy runs are compared with its own no-policy run. “With research” adds the research option of section 4; “Market maker also learns from slots without a trade” is the version described in section 1.3. Full results for every run, with the activity measures below, are in sim/results/entry_runs.csv.'));
+
+    const nr = e => ER.find(r => r.scenario === 'main' && r.eps === e && r.policy === 'noise' && r.strength === 3);
+    const e6 = card('5.6 How the noise subsidy works', `Our noise trades at ${M.entry_noise3} per slot, change from the no-policy market, per market over its life.`, null, 'card wide');
+    const usd = (v, d) => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(v).toFixed(d);
+    e6.append(simpleTable([{ key: 0, label: 'η', num: true }, { key: 1, label: 'Sponsor cost', num: true }, { key: 2, label: 'Informed arrivals', num: true }, { key: 3, label: 'Informed trades', num: true }, { key: 4, label: 'Noise trades', num: true }, { key: 5, label: 'Average spread', num: true }, { key: 6, label: 'Informed profit', num: true }, { key: 7, label: 'Attention spending', num: true }, { key: 8, label: 'Brier gain', num: true }],
+      EPS.map(e => nr(e)).filter(Boolean).map(r => [String(r.eps), '$' + f2(r.cost), num(r.d_informed_arrivals, 2), num(r.d_informed_trades, 2), num(r.d_noise_trades, 1), num(r.d_spread * 100, 2) + '¢', usd(r.d_expected_profit, 3), usd(r.d_entry_spend, 3), se(r.gain_life, r.se_life)])),
+      h('p', { class: 'note' }, 'Brier gain over the market’s life, standard error in brackets. Informed profit is entrants’ expected trading profit as they assess it (on public information), before their attention costs; attention spending is what entrants spend on those costs (traders’ own resources, unlike the sponsor’s cost). With fixed entry, extra noise narrows spreads and lets the same informed traders trade more often; with responsive entry, the higher profits also bring more of them.'),
+      ...(() => { const rs = EPS.filter(e => e > 0).map(e => nr(e)).filter(Boolean); if (!rs.length) return [];
+        const pa = rs.map(r => r.d_informed_arrivals / (r.informed_arrivals - r.d_informed_arrivals)), pp = rs.map((r, i) => r.expected_profit / (r.expected_profit - r.d_expected_profit) / (1 + pa[i]) - 1);
+        const at = (a, d) => rs.map((r, i) => `${num(a[i] * 100, d)}% at η = ${r.eps}`).join(', ');
+        return [h('p', {}, `How much entry responds: the subsidy changes informed arrivals by ${at(pa, 1)}, while expected profit per entrant changes by ${at(pp, 1)}.`)]; })());
+
+    const pr = (s, e, k) => EB.find(r => r.scenario === s && r.eps === e && r.policy === k);
+    const polKeys = [...new Set(EB.filter(r => r.scenario === 'main').map(r => r.policy))];
+    const rankTable = s => simpleTable([{ key: 0, label: 'Policy' }, ...EPS.map((e, i) => ({ key: i + 1, label: `η = ${e}`, num: true }))],
+      polKeys.map(k => [pr('main', 0, k).label, ...EPS.map(e => { const r = pr(s, e, k); return r && r.gain_life != null && solved(s, e) ? se(r.gain_life, r.se_life) : '–'; })]));
+    const e7 = card('5.7 All policies with responsive entry', 'Brier gain over the market’s life at $1 per market.', null, 'card wide');
+    e7.append(rankTable('main'), EB.some(r => r.scenario === 'full') ? h('details', {}, h('summary', {}, 'Show the version where the market maker also learns from slots without a trade (section 1.3)'), rankTable('full')) : null);
+
+    const dd = ED.filter(r => r.scenario === 'main'), d0 = dd[0];
+    const lo = Math.min(...dd.map(r => r.model_d_traded)), hi = Math.max(...dd.map(r => r.model_d_traded));
+    const e8 = card('5.8 What the rewards data can and cannot tell us', null, null, 'card wide');
+    e8.append(
+      h('p', {}, `When Kalshi’s rewards start, spreads narrow by ${(-d0.kalshi_d_spread * 100).toFixed(1)}¢ (SE ${(d0.kalshi_d_spread_se * 100).toFixed(1)}) and the share of days with a trade rises by ${(d0.kalshi_d_traded * 100).toFixed(1)} points (SE ${(d0.kalshi_d_traded_se * 100).toFixed(1)}) (Rewards tab). In the model, a market-making subsidy that narrows spreads by as much changes the share of days with a trade by ${num(lo * 100, 1)} to ${num(hi * 100, 1)} points across η = 0 to 4.`),
+      h('p', {}, 'So most of the rise seen on Kalshi is trading that the model does not contain: existing traders trading more, more noise trading, trading drawn by the rewards themselves, or a larger informed response than these η produce. The rewards data cannot separate new informed traders from these, and therefore cannot tell us which η applies. They are also liquidity (market-making) rewards; volume rewards, the closer analogue of the noise subsidy, are not separated here. Counts of unique and first-time traders around incentive changes would measure participation more directly (though not who is informed), and a small randomized fee or participation subsidy would identify the response.'));
+
+    const e9 = card('5.9 Limits of this extension', null, null, 'card wide');
+    const RP = ER.filter(r => r.scenario === 'main' && r.policy === 'base' && r.realized_profit != null).sort((a, b) => a.eps - b.eps).map(r => ({ e: r.eps, v: r.realized_profit / r.expected_profit }));
+    e9.append(h('ul', { class: 'plain' },
+      h('li', {}, 'Entry responds immediately to the current surplus; there is no gradual build-up after an incentive starts, or exit after it ends.'),
+      h('li', {}, 'Surplus and costs are per one-dollar contract and have not been mapped to actual trade sizes, so the attention costs should not be read as dollars of research or labour.'),
+      h('li', {}, 'Calibration matches average informed activity only. Signal quality and overlap are not matched to price responses to trades or their persistence.'),
+      h('li', {}, 'Overlap is a single component shared by all informed traders; persistent information held by particular traders is not modelled.'),
+      h('li', {}, `Traders do not learn from prices or trade history, so they judge the surplus on public information and their signal while the quotes also reflect earlier trades. ${RP.length ? `With no policy, entrants’ realized trading profit (at the true outcome) is ${RP.map(q => `${Math.round(q.v * 100)}%`).join(', ')} of what they expect at η = ${RP.map(q => q.e).join(', ')} (fresh information): the more responsive entry is, the more it follows profit that is not there.` : 'Entrants therefore expect more profit than they make.'} Calibration sets the attention cost against these expectations, and with shared information they also do not see that the market maker already knows part of what they know.`),
+      h('li', {}, 'No new data work: liquidity and volume rewards are not distinguished, and counts of unique or first-time traders around incentive changes are not used.'),
+      h('li', {}, 'On the forecaster contract, traders arrive at the main contract’s entry rate.')));
+    main.append(h('div', { class: 'grid' }, e1), h('div', { class: 'grid', style: 'margin-top:16px' }, e2), h('div', { class: 'grid', style: 'margin-top:16px' }, e3), h('div', { class: 'grid', style: 'margin-top:16px' }, e4),
+      h('div', { class: 'grid', style: 'margin-top:16px' }, e5), h('div', { class: 'grid', style: 'margin-top:16px' }, e6), h('div', { class: 'grid', style: 'margin-top:16px' }, e7), h('div', { class: 'grid', style: 'margin-top:16px' }, e8), h('div', { class: 'grid', style: 'margin-top:16px' }, e9));
+  }
+
+  // 6 ── caveats
   const SN = M.sensitivity || [];
-  sectionHead(main, '5. Caveats');
+  sectionHead(main, '6. Caveats');
   const k1 = h('div', { class: 'card wide' });
   k1.append(h('ul', { class: 'plain' },
     h('li', {}, 'A stylized model with rough calibration: useful for comparing policies within the model, not for predicting their exact effects on Kalshi.'),
     h('li', {}, 'The market maker learns only from trades. This pulls its prices toward 50%, most visibly close to resolution. A fully Bayesian market maker that also learns from slots without a trade gives better-calibrated prices, and the interest and market-making subsidies then help even less' + (SN.length ? ` (at the third strength: ${SN.filter(r => ['interest', 'mm'].includes(r.policy)).map(r => `${r.label.toLowerCase()} ${num(r.gain_life, 4)} instead of ${num(r.main_gain_life, 4)}`).join('; ')}); the ranking of policies is the same.` : '.')),
     h('li', {}, 'Traders decide trade by trade: each informed arrival trades at most one contract and holds it to resolution, with no waiting, resale or position sizing.'),
-    h('li', {}, 'Each arriving informed trader draws fresh private information, so paying for more informed trades (the panel) adds information mechanically; with a fixed group of traders who keep their information, the panel’s value would be smaller.'),
+    h('li', {}, 'Each arriving informed trader draws fresh private information, so paying for more informed trades (the panel) adds information mechanically; with a fixed group of traders who keep their information, the panel’s value would be smaller (section 5.3 tests shared information for the noise subsidy).'),
     h('li', {}, 'Costs assume every trade is one $1 contract. Per-trade policies (interest, market-making) scale with trading volume, about 92% of which is noise trading here; the forecaster contract’s cost does not.'),
     h('li', {}, 'The cost of the forecaster contract is an assumption. The model takes the panel’s forecast to be its honest Bayesian estimate; the proposal secures this by keeping panelists out of the market and paying them a fixed fee plus a bonus scored on the real outcome.'),
     h('li', {}, 'Each policy runs over 2,000 simulated markets.')));
   main.append(h('div', { class: 'grid' }, k1));
 
-  // 6 ── references
-  sectionHead(main, '6. References');
+  // 7 ── references
+  sectionHead(main, '7. References');
   const r1 = card('References', null, null, 'card wide');
   r1.append(h('ul', { class: 'plain' }, [
+    'Admati, A. R., and Pfleiderer, P. (1988). A theory of intraday patterns: Volume and price variability. Review of Financial Studies, 1(1), 3–40.',
     'Brier, G. W. (1950). Verification of forecasts expressed in terms of probability. Monthly Weather Review, 78(1), 1–3.',
     'Easley, D., and O’Hara, M. (1992). Time and the process of security price adjustment. Journal of Finance, 47(2), 577–605.',
     'Glosten, L. R., and Milgrom, P. R. (1985). Bid, ask and transaction prices in a specialist market with heterogeneously informed traders. Journal of Financial Economics, 14(1), 71–100.',
@@ -943,6 +1068,7 @@ function pageSimulation(main) {
     'Ho, T., and Stoll, H. R. (1981). Optimal dealer pricing under transactions and return uncertainty. Journal of Financial Economics, 9(1), 47–73.',
     'Kyle, A. S. (1985). Continuous auctions and insider trading. Econometrica, 53(6), 1315–1335.',
     'Mellers, B., et al. (2014). Psychological strategies for winning a geopolitical forecasting tournament. Psychological Science, 25(5), 1106–1115.',
+    'Minka, T. P. (2001). Expectation propagation for approximate Bayesian inference. Proceedings of the 17th Conference on Uncertainty in Artificial Intelligence, 362–369.',
     'Page, L., and Clemen, R. T. (2013). Do prediction markets produce well-calibrated probability forecasts? Economic Journal, 123(568), 491–513.',
     'Wolfers, J., and Zitzewitz, E. (2004). Prediction markets. Journal of Economic Perspectives, 18(2), 107–126.',
   ].map(t => h('li', {}, t))));
